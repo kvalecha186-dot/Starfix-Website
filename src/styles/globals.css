@@ -48,13 +48,35 @@
 html, body {
   max-width: 100vw;
   overflow-x: hidden;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: none;
+}
+
+/* Touch-friendly optimizations for mobile devices */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button, a, input, select, textarea {
+  touch-action: manipulation;
 }
 
 @media (max-width: 1023px) {
   /* Belt-and-suspenders: nothing on tablet/mobile should ever force a
      horizontal scrollbar, no matter which card/grid caused it. */
-  #root { overflow-x: hidden; max-width: 100vw; }
+  #root {
+    overflow-x: hidden;
+    max-width: 100vw;
+    -webkit-overflow-scrolling: touch;
+  }
   img, video { max-width: 100%; }
+  
+  /* GPU Compositing for smooth mobile rendering */
+  .glow-card, button, a, [style*="transition"] {
+    transform: translate3d(0, 0, 0);
+    will-change: transform, opacity;
+  }
 }
 
 /* Slide-in sidebar drawer (mobile nav) */
