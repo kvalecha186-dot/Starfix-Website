@@ -1,0 +1,297 @@
+import { useParams, useNavigate, Link } from "react-router";
+import { motion } from "motion/react";
+import {
+  ArrowLeft, ArrowRight, Clock, BarChart3, CheckCircle2, Star,
+  Users, ExternalLink, Quote,
+} from "lucide-react";
+import { C } from "../dashColors";
+import { useViewport } from "../../lib/useViewport";
+import { PATHS, statsFor, WEEK_BANDS, CURATED_STACKS, fallbackStack, hashStr } from "./GoalsPage";
+import { MENTORS } from "./MentorsPage";
+import { isEnrolled } from "../../lib/pathProgress";
+
+const FIRST_NAMES = ["Ananya", "Rohan", "Kavya", "Aditya", "Meera", "Vikram", "Diya", "Arjun"];
+const LAST_INITIALS = ["S.", "M.", "R.", "K.", "P.", "N.", "V.", "T."];
+function successStoriesFor(p: PathDef_) {
+  const h = hashStr(p.id);
+  return [0, 1, 2].map((i) => {
+    const name = `${FIRST_NAMES[(h + i * 7) % FIRST_NAMES.length]} ${LAST_INITIALS[(h + i * 11) % LAST_INITIALS.length]}`;
+    const weeks = 4 + ((h + i * 13) % 10);
+    return {
+      name,
+      quote: `Starting ${p.title} felt overwhelming until I had a real plan. ${weeks} weeks in, I'm finally making real progress on ${p.modules[Math.min(2, p.modules.length - 1)].toLowerCase()}.`,
+      result: `Completed ${p.modules[0]} in week ${Math.max(1, Math.round(weeks / 3))}`,
+    };
+  });
+}
+type PathDef_ = typeof PATHS[number];
+
+/* ─────────────────────────────────────────────────────────────────────────
+   /paths/:pathId — a fully public overview of ONE specific Growth Path.
+   Every section below is driven entirely by the matched PathDef; nothing
+   is templated from a single example, so Cloud Computing looks nothing
+   like DevOps, which looks nothing like UI/UX Design, etc.
+───────────────────────────────────────────────────────────────────────── */
+
+const LABEL: React.CSSProperties = {
+  fontSize: "0.68rem",
+  textTransform: "uppercase",
+  letterSpacing: "0.1em",
+  color: C.textFaint,
+  fontFamily: "'Inter', sans-serif",
+};
+
+function SectionCard({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
+  const { isMobile } = useViewport();
+  return (
+    <div
+      style={{
+        background: C.surface,
+        border: `1px solid ${C.border}`,
+        borderRadius: 18,
+        boxShadow: C.shadow,
+        padding: isMobile ? "20px 18px" : "28px 32px",
+        ...style,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+export function PathOverviewPage() {
+  const { pathId } = useParams<{ pathId: string }>();
+  const navigate = useNavigate();
+  const { isDesktop, isMobile } = useViewport();
+  const p = PATHS.find((x) => x.id === pathId);
+
+  // Back must use real history navigation, not a same-route push (which is
+  // what caused Back to silently "reopen" this exact path). navigate(-1) is
+  // correct when we actually have a previous in-app entry to return to —
+  // react-router tracks that via history.state.idx, which is 0 only on the
+  // very first entry in this tab (i.e. this page was opened directly, e.g.
+  // a typed URL or external link, with nothing to go back to). In that one
+  // case, falling back to navigate(-1) would either do nothing or leave the
+  // app, so we fall back to the app root instead — never re-navigating to
+  // this same /paths/:pathId route, which is what prevents any loop.
+  const handleBack = () => {
+    const idx = (window.history.state as { idx?: number } | null)?.idx ?? 0;
+    if (idx > 0) {
+      navigate(-1);
+    } else {
+      navigate("/", { replace: true });
+    }
+  };
+
+  if (!p) {
+    return (
+      <div style={{ background: C.bg, minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 14 }}>
+        <span style={{ fontFamily: "'Playfair Display', serif", fontSize: "1.4rem", color: C.text }}>Growth Path not found</span>
+        <Link to="/" style={{ color: C.gold, fontSize: "0.86rem", fontFamily: "'Inter', sans-serif" }}>← Back to Starfix</Link>
+      </div>
+    );
+  }
+
+  const s = statsFor(p);
+  const stack = CURATED_STACKS[p.id] ?? fallbackStack(p);
+  const mentors = MENTORS.filter((m) => m.category === p.mentorCategory).slice(0, 3);
+  const fallbackMentors = mentors.length ? mentors : MENTORS.slice(0, 3);
+  const stories = successStoriesFor(p);
+  const enrolled = isEnrolled(p.id);
+
+  const goToJourney = () => navigate(enrolled ? `/my-paths/${p.id}` : `/activate/${p.id}`);
+
+  return (
+    <div style={{ background: C.bg, minHeight: "100vh", padding: isDesktop ? "40px 48px 72px" : "20px 16px 56px" }}>
+      <div style={{ maxWidth: 900, margin: "0 auto", display: "flex", flexDirection: "column", gap: isDesktop ? 28 : 20 }}>
+
+        <button
+          onClick={handleBack}
+          style={{ display: "flex", alignItems: "center", gap: 6, color: C.textMuted, fontSize: "0.82rem", background: "none", border: "none", cursor: "pointer", padding: 0, fontFamily: "'Inter', sans-serif" }}
+        >
+          <ArrowLeft size={14} /> Back
+        </button>
+
+        {/* Header */}
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 14 }}>
+            <div style={{ width: 52, height: 52, borderRadius: C.radius, background: `${p.color}18`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <p.Icon size={24} color={p.color} />
+            </div>
+            <div>
+              <span style={{ ...LABEL }}>{p.group}</span>
+              <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: "2rem", fontWeight: 700, color: C.text, margin: "2px 0 0", letterSpacing: "-0.01em" }}>
+                {p.title}
+              </h1>
+            </div>
+          </div>
+          <p style={{ fontSize: "0.94rem", color: C.textMuted, lineHeight: 1.6, maxWidth: 640, margin: "0 0 20px" }}>{p.desc}</p>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 22, flexWrap: "wrap" }}>
+            <span style={{ display: "flex", alignItems: "center", gap: 7, fontSize: "0.84rem", color: C.text }}>
+              <Clock size={14} color={C.textFaint} /> {s.duration}
+            </span>
+            <span style={{ display: "flex", alignItems: "center", gap: 7, fontSize: "0.84rem", color: C.text }}>
+              <BarChart3 size={14} color={C.textFaint} /> {s.difficulty}
+            </span>
+            <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: "0.84rem", color: C.text }}>
+              <Star size={13} color={C.gold} fill={C.gold} /> {s.rating} · {s.learners.toLocaleString()} learners
+            </span>
+          </div>
+        </motion.div>
+
+        {/* Who it's for / What you'll achieve */}
+        <SectionCard style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: isMobile ? 22 : 32 }}>
+          <div>
+            <span style={{ ...LABEL, display: "block", marginBottom: 10 }}>Who It's For</span>
+            <p style={{ fontSize: "0.86rem", color: C.textMuted, lineHeight: 1.65, margin: 0 }}>
+              Anyone starting fresh in {p.title.toLowerCase()} — no prior experience required, just consistency and {s.duration.toLowerCase()} of focus.
+            </p>
+          </div>
+          <div>
+            <span style={{ ...LABEL, display: "block", marginBottom: 10 }}>What You'll Achieve</span>
+            <p style={{ fontSize: "0.86rem", color: C.textMuted, lineHeight: 1.65, margin: 0 }}>
+              Real, demonstrable ability across {p.modules[0].toLowerCase()} and {p.modules[Math.min(2, p.modules.length - 1)].toLowerCase()} — culminating in {p.modules[p.modules.length - 1].toLowerCase()}, your final milestone on this path.
+            </p>
+          </div>
+        </SectionCard>
+
+        {/* What you'll learn */}
+        <SectionCard>
+          <span style={{ ...LABEL, display: "block", marginBottom: 18 }}>What You'll Learn</span>
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: "14px 28px" }}>
+            {p.modules.map((mod) => (
+              <div key={mod} style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                <CheckCircle2 size={15} color={p.color} style={{ flexShrink: 0, marginTop: 1 }} />
+                <span style={{ fontSize: "0.86rem", color: C.text }}>{mod}</span>
+              </div>
+            ))}
+          </div>
+        </SectionCard>
+
+        {/* Weekly roadmap */}
+        <SectionCard>
+          <span style={{ ...LABEL, display: "block", marginBottom: 20 }}>Weekly Roadmap</span>
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            {p.modules.map((mod, i) => (
+              <div key={mod} style={{ display: "flex", gap: 16, paddingBottom: i < p.modules.length - 1 ? 20 : 0 }}>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                  <div style={{ width: 9, height: 9, borderRadius: "50%", background: p.color, flexShrink: 0 }} />
+                  {i < p.modules.length - 1 && <div style={{ width: 1, flex: 1, minHeight: 30, background: C.borderMuted, marginTop: 4 }} />}
+                </div>
+                <div style={{ paddingTop: 1 }}>
+                  <div style={{ fontSize: "0.62rem", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 700, color: C.textFaint, marginBottom: 3 }}>
+                    Phase {i + 1} · {WEEK_BANDS[i]}
+                  </div>
+                  <div style={{ fontSize: "0.92rem", fontWeight: 600, color: C.text }}>{mod}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </SectionCard>
+
+        {/* Skills gained */}
+        <SectionCard>
+          <span style={{ ...LABEL, display: "block", marginBottom: 16 }}>Skills Gained</span>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {p.modules.map((mod) => (
+              <span key={mod} style={{
+                fontSize: "0.78rem", color: C.text, background: C.surfaceAlt,
+                border: `1px solid ${C.borderMuted}`, padding: "7px 14px", borderRadius: 20,
+              }}>
+                {mod}
+              </span>
+            ))}
+          </div>
+        </SectionCard>
+
+        {/* Sample videos */}
+        <SectionCard>
+          <span style={{ ...LABEL, display: "block", marginBottom: 18 }}>Sample Videos</span>
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr 1fr", gap: 16 }}>
+            {[stack.start, stack.deeper, stack.practice].map((r) => (
+              <a
+                key={r.title}
+                href={r.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display: "block", textDecoration: "none", padding: "16px 16px 14px",
+                  borderRadius: C.radiusSm, border: `1px solid ${C.border}`, background: C.surfaceAlt,
+                  transition: "box-shadow 200ms ease",
+                }}
+              >
+                <div style={{ fontSize: "0.66rem", color: C.textFaint, marginBottom: 8 }}>{r.duration} · {r.source}</div>
+                <div style={{ fontSize: "0.84rem", fontWeight: 600, color: C.text, lineHeight: 1.35, marginBottom: 6 }}>{r.title}</div>
+                <div style={{ fontSize: "0.74rem", color: C.gold, fontWeight: 600 }}>{r.cta} →</div>
+              </a>
+            ))}
+          </div>
+        </SectionCard>
+
+        {/* Available mentors */}
+        <SectionCard>
+          <span style={{ ...LABEL, display: "block", marginBottom: 6 }}>Available Mentors</span>
+          <p style={{ fontSize: "0.8rem", color: C.textMuted, margin: "0 0 20px" }}>{p.mentorLabel} ready to guide this path.</p>
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr 1fr", gap: 16 }}>
+            {fallbackMentors.map((m) => (
+              <div key={m.id} style={{ padding: 16, borderRadius: C.radiusSm, border: `1px solid ${C.border}` }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+                  <div style={{
+                    width: 32, height: 32, borderRadius: "50%", background: `${m.color}18`,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: "0.7rem", fontWeight: 700, color: m.color, flexShrink: 0,
+                  }}>
+                    {m.initials}
+                  </div>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: "0.82rem", fontWeight: 600, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.name}</div>
+                    <div style={{ fontSize: "0.68rem", color: C.textMuted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.title}</div>
+                  </div>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: "0.72rem", color: C.textMuted }}>
+                  <Users size={11} color={C.textFaint} /> {m.students.toLocaleString()} students
+                  <span style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 3, color: C.text }}>
+                    <Star size={10} color={C.gold} fill={C.gold} /> {m.rating}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </SectionCard>
+
+        {/* Success stories */}
+        <SectionCard>
+          <span style={{ ...LABEL, display: "block", marginBottom: 6 }}>Success Stories</span>
+          <p style={{ fontSize: "0.8rem", color: C.textMuted, margin: "0 0 20px" }}>Real momentum from learners on this exact path.</p>
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr 1fr", gap: 16 }}>
+            {stories.map((story) => (
+              <div key={story.name} style={{ padding: 16, borderRadius: C.radiusSm, border: `1px solid ${C.border}`, background: C.surfaceAlt }}>
+                <Quote size={14} color={p.color} style={{ marginBottom: 8, opacity: 0.7 }} />
+                <p style={{ fontSize: "0.78rem", color: C.text, lineHeight: 1.55, margin: "0 0 12px" }}>{story.quote}</p>
+                <div style={{ fontSize: "0.76rem", fontWeight: 600, color: C.text }}>{story.name}</div>
+                <div style={{ fontSize: "0.68rem", color: C.textFaint, marginTop: 2 }}>{story.result}</div>
+              </div>
+            ))}
+          </div>
+        </SectionCard>
+
+        {/* Start / Continue Journey CTA */}
+        <div style={{ display: "flex", justifyContent: "center", paddingTop: 8 }}>
+          <motion.button
+            onClick={goToJourney}
+            whileHover={{ boxShadow: `0 0 0 4px ${C.goldBorder}` }}
+            style={{
+              display: "flex", alignItems: "center", gap: 10,
+              padding: "15px 34px", borderRadius: C.radiusSm, border: "none",
+              background: C.gold, color: "#fff", fontSize: "0.92rem", fontWeight: 600,
+              cursor: "pointer", fontFamily: "'Inter', sans-serif", transition: "box-shadow 200ms ease",
+            }}
+          >
+            {enrolled ? "Continue Journey" : "Start Your Journey"} <ArrowRight size={16} />
+          </motion.button>
+        </div>
+      </div>
+    </div>
+  );
+}

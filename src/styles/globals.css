@@ -1,0 +1,110 @@
+/* Cursor-following gold glow used by .glow-card elements across the
+   Profile page's new sections (Growth Journey, Focus Areas, Resume Your
+   Flow, What's Growing). JS (handleGlowMove) keeps --gx/--gy updated on
+   pointer move; this radial gradient just follows them. */
+.glow-card {
+  position: relative;
+  overflow: hidden;
+}
+.glow-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(220px circle at var(--gx, 50%) var(--gy, 50%), rgba(201, 162, 39, 0.16), transparent 72%);
+  opacity: 0;
+  transition: opacity 220ms ease;
+  pointer-events: none;
+  z-index: 0;
+}
+.glow-card:hover::before {
+  opacity: 1;
+}
+.glow-card:active {
+  transform: scale(0.994);
+  transition: transform 150ms ease;
+}
+.glow-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Gentle breathing pulse for the Growth Journey chart, so the line feels
+   alive rather than static. */
+.pulse-chart {
+  animation: pulseChart 4.5s ease-in-out infinite;
+}
+@keyframes pulseChart {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.88; }
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Responsive / mobile foundation. Scoped so it only affects behavior below
+   the desktop breakpoint (1024px) — desktop styling above is untouched.
+───────────────────────────────────────────────────────────────────────── */
+
+html, body {
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+@media (max-width: 1023px) {
+  /* Belt-and-suspenders: nothing on tablet/mobile should ever force a
+     horizontal scrollbar, no matter which card/grid caused it. */
+  #root { overflow-x: hidden; max-width: 100vw; }
+  img, video { max-width: 100%; }
+}
+
+/* Slide-in sidebar drawer (mobile nav) */
+@keyframes starfixDrawerIn {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(0); }
+}
+@keyframes starfixOverlayIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.starfix-drawer-enter {
+  animation: starfixDrawerIn 260ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+.starfix-overlay-enter {
+  animation: starfixOverlayIn 200ms ease forwards;
+}
+
+/* Bottom-sheet selector (mobile dropdowns, e.g. country picker) */
+@keyframes starfixSheetIn {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+.starfix-sheet-enter {
+  animation: starfixSheetIn 260ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* Respect reduced-motion: kill the above slide/fade animations and fall
+   back to an instant show — Framer Motion components elsewhere check
+   this same media query at the component level (see useReducedMotion
+   usages), this covers the plain-CSS drawer/sheet/keyframe animations. */
+@media (prefers-reduced-motion: reduce) {
+  .starfix-drawer-enter,
+  .starfix-overlay-enter,
+  .starfix-sheet-enter {
+    animation: none !important;
+  }
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* Horizontally-scrollable chip rows (mobile filters, suggested prompts) —
+   scrollbar hidden, momentum scroll kept. */
+.starfix-chip-scroll {
+  display: flex;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.starfix-chip-scroll::-webkit-scrollbar { display: none; }

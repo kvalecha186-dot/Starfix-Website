@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="refresh" content="0; url=http://localhost:5173" />
+  <title>Opening Starfix Localhost</title>
+  <style>
+    body {
+      background: #050510;
+      color: #FAF9F6;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      text-align: center;
+    }
+    .card {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(212, 175, 55, 0.18);
+      border-radius: 12px;
+      padding: 32px;
+      box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
+      max-width: 400px;
+    }
+    h2 {
+      font-weight: 400;
+      margin: 0 0 16px;
+      color: #D4AF37;
+    }
+    p {
+      color: rgba(250, 249, 246, 0.6);
+      font-size: 14px;
+      line-height: 1.6;
+      margin: 0 0 24px;
+    }
+    .btn {
+      display: inline-block;
+      background: linear-gradient(135deg, #F4D67A 0%, #D4AF37 100%);
+      color: #07060f;
+      text-decoration: none;
+      font-weight: bold;
+      padding: 12px 28px;
+      border-radius: 99px;
+      font-size: 14px;
+      transition: transform 0.2s, box-shadow 0.2s;
+      box-shadow: 0 0 20px rgba(212, 175, 55, 0.28);
+    }
+    .btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 0 30px rgba(212, 175, 55, 0.45);
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>Redirecting to Localhost</h2>
+    <p>Opening the Starfix development server.<br>Ensure you have started the dev server with <code>npm run dev</code>.</p>
+    <a href="http://localhost:5173" class="btn">Go to Localhost</a>
+  </div>
+  <script>
+    setTimeout(function() {
+      window.location.href = "http://localhost:5173";
+    }, 100);
+  </script>
+</body>
+</html>

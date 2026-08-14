@@ -1,0 +1,266 @@
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --font-size: 16px;
+  --background: #0a0a0f;
+  --foreground: #FAF9F6;
+  --card: #111118;
+  --card-foreground: #FAF9F6;
+  --popover: #111118;
+  --popover-foreground: #FAF9F6;
+  --primary: #D4AF37;
+  --primary-foreground: #0a0a0f;
+  --secondary: #1a1a24;
+  --secondary-foreground: #FAF9F6;
+  --muted: #1e1e2a;
+  --muted-foreground: #888899;
+  --accent: #F4D67A;
+  --accent-foreground: #0a0a0f;
+  --destructive: #d4183d;
+  --destructive-foreground: #ffffff;
+  --border: rgba(212, 175, 55, 0.15);
+  --input: transparent;
+  --input-background: #1a1a24;
+  --switch-background: #2a2a3a;
+  --font-weight-medium: 500;
+  --font-weight-normal: 400;
+  --ring: #D4AF37;
+  --gold: #D4AF37;
+  --gold-soft: #F4D67A;
+  --gold-dim: rgba(212, 175, 55, 0.3);
+  --ivory: #FAF9F6;
+  --charcoal: #1C1C1C;
+  --chart-1: #D4AF37;
+  --chart-2: #F4D67A;
+  --chart-3: #a08020;
+  --chart-4: #7a6010;
+  --chart-5: #c8a228;
+  --radius: 0.75rem;
+  --sidebar: #0d0d14;
+  --sidebar-foreground: #FAF9F6;
+  --sidebar-primary: #D4AF37;
+  --sidebar-primary-foreground: #0a0a0f;
+  --sidebar-accent: #1a1a24;
+  --sidebar-accent-foreground: #FAF9F6;
+  --sidebar-border: rgba(212, 175, 55, 0.1);
+  --sidebar-ring: #D4AF37;
+}
+
+.dark {
+  --background: #0a0a0f;
+  --foreground: #FAF9F6;
+  --card: #111118;
+  --card-foreground: #FAF9F6;
+  --popover: #111118;
+  --popover-foreground: #FAF9F6;
+  --primary: #D4AF37;
+  --primary-foreground: #0a0a0f;
+  --secondary: #1a1a24;
+  --secondary-foreground: #FAF9F6;
+  --muted: #1e1e2a;
+  --muted-foreground: #888899;
+  --accent: #F4D67A;
+  --accent-foreground: #0a0a0f;
+  --destructive: #d4183d;
+  --destructive-foreground: #ffffff;
+  --border: rgba(212, 175, 55, 0.15);
+  --input: #1a1a24;
+  --ring: #D4AF37;
+  --font-weight-medium: 500;
+  --font-weight-normal: 400;
+  --chart-1: #D4AF37;
+  --chart-2: #F4D67A;
+  --chart-3: #a08020;
+  --chart-4: #7a6010;
+  --chart-5: #c8a228;
+  --sidebar: #0d0d14;
+  --sidebar-foreground: #FAF9F6;
+  --sidebar-primary: #D4AF37;
+  --sidebar-primary-foreground: #0a0a0f;
+  --sidebar-accent: #1a1a24;
+  --sidebar-accent-foreground: #FAF9F6;
+  --sidebar-border: rgba(212, 175, 55, 0.1);
+  --sidebar-ring: #D4AF37;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-input-background: var(--input-background);
+  --color-switch-background: var(--switch-background);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Inter', sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  html {
+    font-size: var(--font-size);
+    scrollbar-width: thin;
+    scrollbar-color: rgba(212, 175, 55, 0.3) transparent;
+  }
+
+  html::-webkit-scrollbar {
+    width: 6px;
+  }
+  html::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  html::-webkit-scrollbar-thumb {
+    background: rgba(212, 175, 55, 0.3);
+    border-radius: 3px;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Playfair Display', serif;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+
+  h1 { font-size: clamp(2.5rem, 6vw, 5rem); }
+  h2 { font-size: clamp(1.8rem, 4vw, 3rem); }
+  h3 { font-size: clamp(1.2rem, 2.5vw, 1.75rem); }
+  h4 { font-size: 1.125rem; }
+
+  label {
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  button {
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  input {
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-normal);
+    line-height: 1.5;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Micro-interactions — icon-button radial gold splash on click, used by
+   any small circular icon button across the dashboard (edit button, icon
+   chips, etc). Kept intentionally subtle: no bounce, no color change,
+   just a soft breathing glow that confirms the tap.
+───────────────────────────────────────────────────────────────────────── */
+.icon-button {
+  position: relative;
+  transition: transform .18s ease, box-shadow .18s ease;
+}
+.icon-button:active {
+  transform: scale(0.94);
+}
+.icon-button::after {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(201,162,39,.22) 0%, transparent 70%);
+  opacity: 0;
+  transform: scale(.8);
+  transition: opacity .35s ease, transform .35s ease;
+  pointer-events: none;
+}
+.icon-button:active::after {
+  opacity: 1;
+  transform: scale(1.15);
+}
+
+/* Fade-up on scroll — sections observe into view once, then settle. */
+@keyframes fadeUpIn {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-up-section {
+  animation: fadeUpIn 0.5s ease both;
+}
+
+/* Cursor-following gold glow + soft click ripple, shared by the premium
+   profile cards (Growth Journey, Focus Areas, Resume Your Flow, Growing
+   feed rows). --gx/--gy are set via onMouseMove in the component. */
+.glow-card {
+  position: relative;
+  overflow: hidden;
+}
+.glow-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(220px circle at var(--gx, 50%) var(--gy, 50%), rgba(201,162,39,.16), transparent 70%);
+  opacity: 0;
+  transition: opacity .3s ease;
+  pointer-events: none;
+}
+.glow-card:hover::before {
+  opacity: 1;
+}
+.glow-card:active::before {
+  background: radial-gradient(220px circle at var(--gx, 50%) var(--gy, 50%), rgba(201,162,39,.3), transparent 60%);
+  opacity: 1;
+}
+
+/* Gentle breathing pulse for the Growth Journey chart. */
+@keyframes gentlePulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: .88; }
+}
+.pulse-chart {
+  animation: gentlePulse 3.6s ease-in-out infinite;
+}
+
+/* Soft gold focus ring for inputs inside premium modals (Edit Profile). */
+.starfix-input {
+  transition: border-color .18s ease, box-shadow .18s ease;
+}
+.starfix-input:focus {
+  outline: none;
+  border-color: #C9A227;
+  box-shadow: 0 0 0 3px rgba(201,162,39,.16);
+}
+
