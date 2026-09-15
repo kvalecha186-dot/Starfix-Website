@@ -1,24 +1,16 @@
 import { supabase } from "./supabase";
 
-const EVENTS = {
-  settings: "starfix:appsettings-changed",
-  saved: "starfix:saveditems-changed",
-  watch: "starfix:watchqueue-changed",
-  notifications: "starfix:notifications-changed",
-  xp: "starfix:xp-changed",
-  progress: "starfix:enrollments-changed",
-  bookings: "starfix_bookings_changed",
-  messages: "starfix:messages-changed",
-} as const;
+const EVENTS = [
+  "starfix:appsettings-changed",
+  "starfix:saveditems-changed",
+  "starfix:watchqueue-changed",
+  "starfix:notifications-changed",
+  "starfix:xp-changed",
+  "starfix:enrollments-changed",
+] as const;
 
 let started = false;
 let syncing = false;
-
-function userIdFromSession(): string | null {
-  // The Supabase client already owns the authenticated session. This helper
-  // is only used after getSession() in the async functions below.
-  return null;
-}
 
 async function currentUserId(): Promise<string | null> {
   const { data } = await supabase.auth.getUser();
@@ -30,7 +22,7 @@ async function syncSettings(userId: string) {
   if (!raw) return;
   let s: any;
   try { s = JSON.parse(raw); } catch { return; }
-  await supabase.from("app_settings").upsert({
+  const { error } = await supabase.from("app_settings").upsert({
     user_id: userId,
     autoplay_next_video: !!s.autoplayNextVideo,
     show_subtitles: !!s.showSubtitles,
@@ -45,13 +37,15 @@ async function syncSettings(userId: string) {
     show_streak_publicly: s.showStreaks !== false,
     show_saved_items_publicly: !!s.showSavedResources,
   }, { onConflict: "user_id" });
+  if (error) console.warn("Starfix settings sync:", error.message);
 }
 
 async function hydrateSettings(userId: string) {
   const { data } = await supabase.from("app_settings").select("*").eq("user_id", userId).maybeSingle();
   if (!data) return;
-  const current = JSON.parse(localStorage.getItem("starfix:appSettings") || "{}");
-  const next = {
+  let current: any = {};
+  try { current = JSON.parse(localStorage.getItem("starfix:appSettings") || "{}"); } catch {}
+  localStorage.setItem("starfix:appSettings", JSON.stringify({
     ...current,
     autoplayNextVideo: data.autoplay_next_video,
     showSubtitles: data.show_subtitles,
@@ -65,8 +59,7 @@ async function hydrateSettings(userId: string) {
     showCompletedPaths: data.show_completed_paths,
     showStreaks: data.show_streak_publicly,
     showSavedResources: data.show_saved_items_publicly,
-  };
-  localStorage.setItem("starfix:appSettings", JSON.stringify(next));
+  }));
 }
 
 async function syncSaved(userId: string) {
@@ -74,24 +67,31 @@ async function syncSaved(userId: string) {
   if (!raw) return;
   let items: any[];
   try { items = JSON.parse(raw); } catch { return; }
-  const { data: paths } = await supabase.from("growth_paths").select("id,slug");
-  const pathMap = new Map((paths ?? []).map((p: any) => [p.slug, p.id]));
   for (const item of items) {
-    await supabase.from("saved_items").upsert({
+    const { error } = await supabase.from("saved_items").upsert({
       user_id: userId,
+      external_id: String(item.id),
       item_type: item.type || "Resource",
-      title: item.title,
+      title: item.title || "Saved item",
       description: item.desc || null,
       url: item.url || `starfix://${item.id}`,
       saved_at: item.savedAt || new Date().toISOString(),
-    }, { onConflict: "id" }).then(() => undefined);
+    }, { onConflict: "user_id,external_id" });
+    if (error) console.warn("Starfix saved item sync:", error.message);
   }
 }
 
 async function hydrateSaved(userId: string) {
-  const { data } = await supabase.from("saved_items").select("id,item_type,title,description,url,saved_at").eq("user_id", userId).order("saved_at", { ascending: false });
-  if (!data?.length) return;
-  const items = data.map((x: any) => ({ id: x.id, type: x.item_type, title: x.title, desc: x.description || "", url: x.url, savedAt: x.saved_at }));
+  const { data } = await supabase.from("saved_items").select("id,external_id,item_type,title,description,url,saved_at").eq("user_id", userId).order("saved_at", { ascending: false });
+  if (!data) return;
+  const items = data.map((x: any) => ({
+    id: x.external_id || x.id,
+    type: x.item_type,
+    title: x.title,
+    desc: x.description || "",
+    url: x.url,
+    savedAt: x.saved_at,
+  }));
   localStorage.setItem("starfix:savedItems", JSON.stringify(items));
 }
 
@@ -105,8 +105,9 @@ async function syncWatch(userId: string) {
   for (const item of Object.values(map)) {
     const pathId = pathMap.get(item.pathId);
     if (!pathId) continue;
-    await supabase.from("watch_queue").upsert({
+    const { error } = await supabase.from("watch_queue").upsert({
       user_id: userId,
+      external_id: String(item.id),
       path_id: pathId,
       video_title: item.title,
       creator: item.creator,
@@ -115,24 +116,25 @@ async function syncWatch(userId: string) {
       elapsed_min: Math.max(0, Math.round(item.elapsedMin)),
       total_min: Math.max(1, Math.round(item.totalMin)),
       last_watched_at: item.lastWatchedAt || new Date().toISOString(),
-    }, { onConflict: "id" });
+    }, { onConflict: "user_id,external_id" });
+    if (error) console.warn("Starfix watch sync:", error.message);
   }
 }
 
 async function hydrateWatch(userId: string) {
   const { data: paths } = await supabase.from("growth_paths").select("id,slug,title");
   const pathMap = new Map((paths ?? []).map((p: any) => [p.id, p]));
-  const { data } = await supabase.from("watch_queue").select("id,path_id,video_title,creator,video_url,pct,elapsed_min,total_min,last_watched_at").eq("user_id", userId).order("last_watched_at", { ascending: false });
+  const { data } = await supabase.from("watch_queue").select("id,external_id,path_id,video_title,creator,video_url,pct,elapsed_min,total_min,last_watched_at").eq("user_id", userId).order("last_watched_at", { ascending: false });
   if (!data) return;
   const out: Record<string, any> = {};
   for (const x of data) {
     const p = pathMap.get(x.path_id);
-    const item = {
-      id: x.id, pathId: p?.slug || x.path_id, pathTitle: p?.title || "Growth Path", pathColor: "#D4AF37",
-      title: x.video_title, creator: x.creator, url: x.video_url, thumbSeed: x.id,
+    const id = x.external_id || x.id;
+    out[id] = {
+      id, pathId: p?.slug || x.path_id, pathTitle: p?.title || "Growth Path", pathColor: "#D4AF37",
+      title: x.video_title, creator: x.creator, url: x.video_url, thumbSeed: id,
       pct: x.pct, elapsedMin: x.elapsed_min, totalMin: x.total_min, lastWatchedAt: x.last_watched_at,
     };
-    out[item.id] = item;
   }
   localStorage.setItem("starfix:watchQueue", JSON.stringify(out));
 }
@@ -143,22 +145,25 @@ async function syncNotifications(userId: string) {
   let list: any[];
   try { list = JSON.parse(raw); } catch { return; }
   for (const n of list) {
-    const externalId = n.id;
-    await supabase.from("notifications").upsert({
+    const { error } = await supabase.from("notifications").upsert({
       user_id: userId,
+      external_id: String(n.id),
       type: n.type,
       title: n.title,
-      message: n.message,
+      message: n.message || null,
       read: !!n.dismissed,
-    }, { onConflict: "id" }).then(() => undefined);
+      created_at: n.createdAt || new Date().toISOString(),
+    }, { onConflict: "user_id,external_id" });
+    if (error) console.warn("Starfix notification sync:", error.message);
   }
 }
 
 async function hydrateNotifications(userId: string) {
-  const { data } = await supabase.from("notifications").select("id,type,title,message,read,created_at").eq("user_id", userId).order("created_at", { ascending: false }).limit(40);
+  const { data } = await supabase.from("notifications").select("id,external_id,type,title,message,read,created_at").eq("user_id", userId).order("created_at", { ascending: false }).limit(40);
   if (!data) return;
-  const list = data.map((n: any) => ({ id: n.id, type: n.type, title: n.title, message: n.message || "", createdAt: n.created_at, dismissed: !!n.read }));
-  localStorage.setItem("starfix:notifications", JSON.stringify(list));
+  localStorage.setItem("starfix:notifications", JSON.stringify(data.map((n: any) => ({
+    id: n.external_id || n.id, type: n.type, title: n.title, message: n.message || "", createdAt: n.created_at, dismissed: !!n.read,
+  }))));
 }
 
 async function syncProgress(userId: string) {
@@ -171,13 +176,22 @@ async function syncProgress(userId: string) {
   for (const e of Object.values(all)) {
     const pathId = pathMap.get(e.pathId);
     if (!pathId) continue;
-    await supabase.from("user_progress").upsert({
-      user_id: userId, path_id: pathId, overall_progress: Math.max(0, Math.min(100, Number(e.weekIndex || 0))),
-      current_milestone_id: null, started_at: e.startedAt, completed_at: e.completedAt,
-      focus: e.focus || [], video_stage: e.videoStage || "start", streak: e.streak || 0, xp: e.xp || 0,
+    const { error } = await supabase.from("user_progress").upsert({
+      user_id: userId,
+      path_id: pathId,
+      overall_progress: e.completedAt ? 100 : Math.max(0, Math.min(99, Number(e.weekIndex || 0) * 8)),
+      started_at: e.startedAt,
+      completed_at: e.completedAt,
+      focus: e.focus || [],
+      video_stage: e.videoStage || "start",
+      streak: e.streak || 0,
+      xp: e.xp || 0,
       last_active_date: (e.lastActiveAt || new Date().toISOString()).slice(0, 10),
-      current_challenge_text: e.challenge?.label || null, current_challenge_xp: 0, current_challenge_done: !!e.challenge?.done,
+      current_challenge_text: e.challenge?.label || null,
+      current_challenge_xp: 0,
+      current_challenge_done: !!e.challenge?.done,
     }, { onConflict: "user_id,path_id" });
+    if (error) console.warn("Starfix progress sync:", error.message);
   }
 }
 
@@ -186,60 +200,63 @@ async function syncXp(userId: string) {
   if (!raw) return;
   let s: any;
   try { s = JSON.parse(raw); } catch { return; }
-  const rows = (s.log || []).slice(0, 200).map((x: any) => ({ user_id: userId, amount: x.amount, reason: x.label || "XP event", source_type: "app", created_at: new Date(x.at || Date.now()).toISOString() }));
-  if (rows.length) await supabase.from("xp_transactions").insert(rows);
+  const rows = (s.log || []).slice(0, 200).map((x: any) => ({
+    user_id: userId,
+    external_id: String(x.id),
+    amount: Number(x.amount) || 0,
+    reason: x.label || "XP event",
+    source_type: "app",
+    created_at: new Date(x.at || Date.now()).toISOString(),
+  }));
+  if (rows.length) {
+    const { error } = await supabase.from("xp_transactions").upsert(rows, { onConflict: "user_id,external_id" });
+    if (error) console.warn("Starfix XP sync:", error.message);
+  }
 }
 
 async function hydrateXp(userId: string) {
-  const { data } = await supabase.from("xp_transactions").select("amount,reason,created_at").eq("user_id", userId).order("created_at", { ascending: false }).limit(200);
+  const { data } = await supabase.from("xp_transactions").select("external_id,amount,reason,created_at").eq("user_id", userId).order("created_at", { ascending: false }).limit(200);
   if (!data?.length) return;
-  const totalXp = data.reduce((sum: number, x: any) => sum + Number(x.amount), 0);
   const state = JSON.parse(localStorage.getItem("starfix:xp") || "{}");
-  state.totalXp = Math.max(0, totalXp); state.pending = state.pending || []; state.settledByKey = state.settledByKey || {};
-  state.consistencyStreak = state.consistencyStreak || 0; state.lastConsistencyDate = state.lastConsistencyDate || "";
-  state.log = data.map((x: any, i: number) => ({ id: `db-${i}-${new Date(x.created_at).getTime()}`, label: x.reason, amount: Number(x.amount), at: new Date(x.created_at).getTime() }));
+  state.totalXp = Math.max(0, data.reduce((sum: number, x: any) => sum + Number(x.amount), 0));
+  state.pending = state.pending || [];
+  state.settledByKey = state.settledByKey || {};
+  state.consistencyStreak = state.consistencyStreak || 0;
+  state.lastConsistencyDate = state.lastConsistencyDate || "";
+  state.log = data.map((x: any, i: number) => ({ id: x.external_id || `db-${i}`, label: x.reason, amount: Number(x.amount), at: new Date(x.created_at).getTime() }));
   localStorage.setItem("starfix:xp", JSON.stringify(state));
 }
 
+async function migrateAndHydrate(userId: string) {
+  // Upload local legacy state first so an existing learner's browser data is
+  // not overwritten by an empty remote account on the first connection.
+  await syncAll(userId);
+  await hydrateAll(userId);
+}
+
 async function hydrateAll(userId: string) {
-  await Promise.all([
-    hydrateSettings(userId), hydrateSaved(userId), hydrateWatch(userId),
-    hydrateNotifications(userId), hydrateXp(userId),
-  ]);
+  await Promise.all([hydrateSettings(userId), hydrateSaved(userId), hydrateWatch(userId), hydrateNotifications(userId), hydrateXp(userId)]);
 }
 
 async function syncAll(userId: string) {
   if (syncing) return;
   syncing = true;
-  try {
-    await Promise.all([
-      syncSettings(userId), syncSaved(userId), syncWatch(userId), syncNotifications(userId), syncProgress(userId), syncXp(userId),
-    ]);
-  } finally { syncing = false; }
+  try { await Promise.all([syncSettings(userId), syncSaved(userId), syncWatch(userId), syncNotifications(userId), syncProgress(userId), syncXp(userId)]); }
+  finally { syncing = false; }
 }
 
 export async function initializeBackendSync() {
-  if (started) return;
+  if (started || typeof window === "undefined") return;
   started = true;
   const userId = await currentUserId();
   if (!userId) return;
 
-  // Database is the cross-device source of truth. Hydrate first, then keep
-  // the existing UI stores compatible while their mutations are migrated.
-  await hydrateAll(userId);
+  await migrateAndHydrate(userId);
 
   const onChange = () => { void currentUserId().then((id) => id && syncAll(id)); };
-  Object.values(EVENTS).forEach((event) => window.addEventListener(event, onChange));
+  EVENTS.forEach((event) => window.addEventListener(event, onChange));
+
   supabase.auth.onAuthStateChange((_event, session) => {
-    if (session?.user) {
-      void hydrateAll(session.user.id).then(() => syncAll(session.user.id));
-    }
+    if (session?.user) void migrateAndHydrate(session.user.id);
   });
-
-  // One initial write migrates any legacy local data into Supabase.
-  await syncAll(userId);
-}
-
-export function getBackendUserId() {
-  return userIdFromSession();
 }
