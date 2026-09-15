@@ -29,6 +29,7 @@ import { AdminLayout } from "./admin/AdminLayout";
 import type { UserProfile } from "./types";
 import { GOAL_META } from "./types";
 import { getProfile, supabase, upsertProfile } from "./lib/supabase";
+import { initializeBackendSync } from "./lib/backendSync";
 
 function RedirectToOverview() {
   const { pathId } = useParams<{ pathId: string }>();
@@ -92,6 +93,7 @@ function AppShell() {
           name: session.user.user_metadata?.full_name || session.user.email?.split("@")[0] || DEFAULT_PROFILE.name,
           email: session.user.email || "",
         });
+        void initializeBackendSync();
       } else {
         setUserProfile(null);
       }
@@ -108,9 +110,7 @@ function AppShell() {
         setAuthLoading(false);
         return;
       }
-      // Do not make a second Auth API call inside the auth callback. The
-      // profile query is a normal database read and runs after the session
-      // has been established.
+      void initializeBackendSync();
       void getProfile(session.user.id).then((profile) => {
         if (!alive) return;
         setUserProfile(profile || {
@@ -148,9 +148,8 @@ function AppShell() {
     const { data } = await supabase.auth.getSession();
     if (data.session?.user) {
       await upsertProfile(data.session.user.id, profile);
+      void initializeBackendSync();
     } else {
-      // Guest onboarding remains available, but real cross-device persistence
-      // starts as soon as the learner creates/logs into a Supabase account.
       localStorage.setItem("loggedIn", "true");
       setLoggedIn(true);
     }
