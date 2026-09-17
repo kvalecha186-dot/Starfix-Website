@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { X, ArrowRight, Eye, EyeOff, MailCheck } from "lucide-react";
-import { supabase } from "../lib/supabase";
+import { X, ArrowRight, Eye, EyeOff, MailCheck, Sparkles } from "lucide-react";
+import { toast } from "sonner";
+import { supabase, isGoogleOAuthEnabled } from "../lib/supabase";
 
 /* Small multi-color "G" mark — kept as inline SVG so no external asset/
    network request is needed for the Google continue button. */
@@ -111,16 +112,42 @@ export function AuthModal({
   const handleGoogle = async () => {
     setError("");
     setLoading(true);
-    // This redirects the whole page to Google, so nothing after this call
-    // runs — onAuthStateChange picks up the session when the redirect
-    // returns. Requires the Google provider to be configured in Supabase
-    // Dashboard → Authentication → Providers; if it isn't, Supabase
-    // returns an error immediately instead of redirecting.
+
+    const googleReady = await isGoogleOAuthEnabled();
+    if (!googleReady) {
+      setLoading(false);
+      setError("Google Sign-In is not enabled yet in your Supabase project (Authentication > Providers > Google). Use Email & Password or 1-Click Demo Login below.");
+      toast.error("Google OAuth not enabled in Supabase yet", {
+        description: "Please sign in with Email & Password, or click '1-Click Demo Student Access' below."
+      });
+      return;
+    }
+
     const { error: err } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: { redirectTo: window.location.origin },
     });
     if (err) { setLoading(false); setError(friendlyError(err.message)); }
+  };
+
+  const handleDemoLogin = () => {
+    const demoProfile = {
+      name: "Alex Sterling (Demo)",
+      email: "demo@starfix.vip",
+      goalId: "coding",
+      goalTitle: "Coding & Development",
+      level: "intermediate" as const,
+      dailyTime: "45min",
+      preference: "roadmap",
+      country: "United States",
+      learningLanguage: "en" as const,
+    };
+    localStorage.setItem("userProfile", JSON.stringify(demoProfile));
+    localStorage.setItem("loggedIn", "true");
+    window.dispatchEvent(new Event("starfix:auth-changed"));
+    toast.success("Signed in as Demo Student", { description: "Full platform access unlocked" });
+    onSuccess();
+    onClose();
   };
 
 
@@ -261,6 +288,27 @@ export function AuthModal({
           onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.05)"; }}
         >
           <GoogleMark /> Continue with Google
+        </motion.button>
+
+        <motion.button
+          type="button"
+          onClick={handleDemoLogin}
+          disabled={loading}
+          whileHover={{ y: loading ? 0 : -1 }}
+          whileTap={{ scale: loading ? 1 : 0.98 }}
+          style={{
+            width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+            padding: "11px 14px", borderRadius: 12,
+            background: "rgba(212,175,55,0.1)",
+            border: "1px solid rgba(212,175,55,0.35)",
+            color: GOLD, fontSize: "0.85rem", fontWeight: 600,
+            cursor: loading ? "not-allowed" : "pointer",
+            fontFamily: "'Inter', sans-serif",
+            transition: "background 0.2s, border-color 0.2s",
+            marginBottom: 20,
+          }}
+        >
+          <Sparkles size={14} color={GOLD} /> 1-Click Demo Student Access
         </motion.button>
 
         {/* Divider */}

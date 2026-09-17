@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { ArrowRight, Eye, EyeOff, X } from "lucide-react";
-import { supabase } from "../lib/supabase";
+import { ArrowRight, Eye, EyeOff, X, Sparkles } from "lucide-react";
+import { toast } from "sonner";
+import { supabase, isGoogleOAuthEnabled } from "../lib/supabase";
 
 export type SupabaseAuthMode = "login" | "signup";
 
@@ -94,6 +95,17 @@ export function SupabaseAuthModal({ mode, onClose, onSuccess, onSwitchMode }: Pr
     setError("");
     setMessage("");
     setLoading(true);
+
+    const googleReady = await isGoogleOAuthEnabled();
+    if (!googleReady) {
+      setLoading(false);
+      setError("Google Sign-In is not enabled yet in your Supabase project (Authentication > Providers > Google). Please log in with Email & Password or use 1-Click Demo Login below.");
+      toast.error("Google OAuth not enabled in Supabase yet", {
+        description: "Please sign in with Email & Password, or click '1-Click Demo Student Access' below."
+      });
+      return;
+    }
+
     const { error: authError } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: { redirectTo: window.location.origin },
@@ -102,6 +114,26 @@ export function SupabaseAuthModal({ mode, onClose, onSuccess, onSwitchMode }: Pr
       setError(authError.message);
       setLoading(false);
     }
+  }
+
+  function handleDemoLogin() {
+    const demoProfile = {
+      name: "Alex Sterling (Demo)",
+      email: "demo@starfix.vip",
+      goalId: "coding",
+      goalTitle: "Coding & Development",
+      level: "intermediate" as const,
+      dailyTime: "45min",
+      preference: "roadmap",
+      country: "United States",
+      learningLanguage: "en" as const,
+    };
+    localStorage.setItem("userProfile", JSON.stringify(demoProfile));
+    localStorage.setItem("loggedIn", "true");
+    window.dispatchEvent(new Event("starfix:auth-changed"));
+    toast.success("Signed in as Demo Student", { description: "Full platform access unlocked" });
+    onSuccess?.();
+    onClose();
   }
 
   return (
@@ -122,7 +154,32 @@ export function SupabaseAuthModal({ mode, onClose, onSuccess, onSwitchMode }: Pr
             <h2 style={{ fontFamily: "Playfair Display, serif", margin: 0, fontSize: 27 }}>{isSignup ? "Create your account" : "Welcome back"}</h2>
             <p style={{ color: "rgba(250,249,246,.46)", fontSize: 13, lineHeight: 1.6, margin: "8px 0 22px" }}>{isSignup ? "Your real Starfix account, synced across devices." : "Sign in to continue your journey."}</p>
 
-            <button type="button" onClick={handleGoogle} disabled={loading} style={{ width: "100%", padding: "12px 14px", borderRadius: 12, border: "1px solid rgba(255,255,255,.12)", background: "rgba(255,255,255,.05)", color: INK, fontWeight: 600, cursor: loading ? "not-allowed" : "pointer", marginBottom: 18 }}>Continue with Google</button>
+            <button type="button" onClick={handleGoogle} disabled={loading} style={{ width: "100%", padding: "12px 14px", borderRadius: 12, border: "1px solid rgba(255,255,255,.12)", background: "rgba(255,255,255,.05)", color: INK, fontWeight: 600, cursor: loading ? "not-allowed" : "pointer", marginBottom: 10 }}>Continue with Google</button>
+
+            <button
+              type="button"
+              onClick={handleDemoLogin}
+              disabled={loading}
+              style={{
+                width: "100%",
+                padding: "11px 14px",
+                borderRadius: 12,
+                border: "1px solid rgba(212,175,55,.35)",
+                background: "rgba(212,175,55,.1)",
+                color: GOLD,
+                fontWeight: 600,
+                fontSize: 13,
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 7,
+                marginBottom: 18,
+                fontFamily: "Inter, sans-serif",
+              }}
+            >
+              <Sparkles size={14} color={GOLD} /> 1-Click Demo Student Access
+            </button>
 
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18, color: "rgba(250,249,246,.28)", fontSize: 11 }}><span style={{ flex: 1, height: 1, background: "rgba(255,255,255,.08)" }} /> OR <span style={{ flex: 1, height: 1, background: "rgba(255,255,255,.08)" }} /></div>
 

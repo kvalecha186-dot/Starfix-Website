@@ -95,7 +95,18 @@ function AppShell() {
         });
         void initializeBackendSync();
       } else {
-        setUserProfile(null);
+        const localLoggedIn = typeof window !== "undefined" && localStorage.getItem("loggedIn") === "true";
+        if (localLoggedIn) {
+          const raw = localStorage.getItem("userProfile");
+          try {
+            setUserProfile(raw ? JSON.parse(raw) : DEFAULT_PROFILE);
+            setLoggedIn(true);
+          } catch {
+            setUserProfile(null);
+          }
+        } else {
+          setUserProfile(null);
+        }
       }
       setAuthLoading(false);
     }
@@ -123,9 +134,13 @@ function AppShell() {
       if (event === "SIGNED_IN") setAuthMode(null);
     });
 
+    const onCustomAuth = () => void syncSession();
+    window.addEventListener("starfix:auth-changed", onCustomAuth);
+
     return () => {
       alive = false;
       listener.subscription.unsubscribe();
+      window.removeEventListener("starfix:auth-changed", onCustomAuth);
     };
   }, []);
 

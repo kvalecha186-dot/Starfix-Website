@@ -23,6 +23,19 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
   },
 });
 
+export async function isGoogleOAuthEnabled(): Promise<boolean> {
+  try {
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/settings`, {
+      headers: { apikey: SUPABASE_KEY },
+    });
+    if (!res.ok) return false;
+    const data = await res.json();
+    return !!data?.external?.google;
+  } catch {
+    return false;
+  }
+}
+
 export async function getProfile(userId: string): Promise<UserProfile | null> {
   const { data, error } = await supabase
     .from("profiles")
