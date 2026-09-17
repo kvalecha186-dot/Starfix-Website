@@ -385,3 +385,100 @@ export async function sendMessageToDb(
     return false;
   }
 }
+
+/* ─── 7. PATH ENROLLMENTS ─────────────────────────────────────────────── */
+
+export async function fetchEnrollmentsFromDb(userId: string): Promise<Record<string, any> | null> {
+  try {
+    const { data, error } = await supabase
+      .from("path_enrollments")
+      .select("*")
+      .eq("user_id", userId);
+
+    if (error) {
+      // Table may not be created yet in remote Supabase
+      return null;
+    }
+    if (!data || data.length === 0) return null;
+
+    const record: Record<string, any> = {};
+    for (const row of data) {
+      const pathKey = row.path_slug || row.path_id;
+      record[pathKey] = {
+        pathId: pathKey,
+        mentorId: row.mentor_num ?? null,
+        sessionSlot: row.session_slot ?? null,
+        sessionAt: row.session_at ?? null,
+        sessionDurationMin: row.session_duration_min || 45,
+        sessionJoined: !!row.session_joined,
+        focus: Array.isArray(row.focus) ? row.focus : [],
+        level: row.level || "intermediate",
+        weeklyTime: row.weekly_time || "30min",
+        weekIndex: row.week_index || 0,
+        tasks: Array.isArray(row.tasks) ? row.tasks : [],
+        challenge: row.challenge || { label: "Complete week checkpoint", done: false },
+        videoStage: row.video_stage || "start",
+        videoProgress: row.video_progress || { pct: 0, elapsedMin: 0, totalMin: 20 },
+        milestoneVideoWatched: !!row.milestone_video_watched,
+        notes: row.notes || "",
+        xp: row.xp || 0,
+        streak: row.streak || 0,
+        startedAt: row.started_at || new Date().toISOString(),
+        lastActiveAt: row.last_active_at || new Date().toISOString(),
+        sessionReflectionDone: false,
+        completedAt: row.completed_at || null,
+      };
+    }
+    return record;
+  } catch (err) {
+    console.warn("Exception reading enrollments from Supabase:", err);
+    return null;
+  }
+}
+
+export async function saveEnrollmentToDb(userId: string, enrollment: any): Promise<boolean> {
+  try {
+    const mentorUuid = enrollment.mentorId
+      ? `00000000-0000-0000-0000-${String(enrollment.mentorId).padStart(12, "0")}`
+      : null;
+
+    const { error } = await supabase
+      .from("path_enrollments")
+      .upsert(
+        {
+          user_id: userId,
+          path_slug: enrollment.pathId,
+          mentor_id: mentorUuid,
+          mentor_num: enrollment.mentorId ?? null,
+          session_slot: enrollment.sessionSlot,
+          session_at: enrollment.sessionAt,
+          session_duration_min: enrollment.sessionDurationMin || 45,
+          session_joined: !!enrollment.sessionJoined,
+          focus: enrollment.focus || [],
+          level: enrollment.level || "intermediate",
+          weekly_time: enrollment.weeklyTime || "30min",
+          week_index: enrollment.weekIndex || 0,
+          tasks: enrollment.tasks || [],
+          challenge: enrollment.challenge || { label: "Complete checkpoint", done: false },
+          video_stage: enrollment.videoStage || "start",
+          video_progress: enrollment.videoProgress || { pct: 0, elapsedMin: 0, totalMin: 20 },
+          milestone_video_watched: !!enrollment.milestoneVideoWatched,
+          notes: enrollment.notes || "",
+          xp: enrollment.xp || 0,
+          streak: enrollment.streak || 0,
+          last_active_at: new Date().toISOString(),
+          completed_at: enrollment.completedAt || null,
+        },
+        { onConflict: "user_id,path_slug" }
+      );
+
+    if (error) {
+      console.warn("Could not save enrollment to Supabase:", error.message);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.warn("Exception saving enrollment to Supabase:", err);
+    return false;
+  }
+}

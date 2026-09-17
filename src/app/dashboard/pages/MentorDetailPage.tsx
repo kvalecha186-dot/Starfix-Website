@@ -17,6 +17,7 @@ import { MENTOR_EXTRA, CATEGORY_CONFIG } from "../mentorExtra";
 import { getAllEnrollments, ENROLLMENTS_CHANGED_EVENT } from "../../lib/pathProgress";
 import { PATHS } from "./GoalsPage";
 import { createBooking, isSessionBooked, BOOKINGS_CHANGED_EVENT } from "../../lib/bookings";
+import { CheckoutModal } from "../CheckoutModal";
 
 /* ─── Small building blocks ───────────────────────── */
 
@@ -85,6 +86,7 @@ export function MentorDetailPage({
   const extra = MENTOR_EXTRA[mentorId];
   const [openFaq, setOpenFaq] = useState<number | null>(0);
   const [selectedSession, setSelectedSession] = useState(0);
+  const [showCheckout, setShowCheckout] = useState(false);
 
   // The learner's own saved session notes with this mentor — read live
   // from the same enrollment store the Workspace's Notes card (Save
@@ -113,26 +115,7 @@ export function MentorDetailPage({
 
   const handleBookSession = () => {
     if (!mentor || !detail || !extra || !currentSess || isBooked) return;
-    const dateStr = detail.availability[0]?.date || "Tomorrow";
-    const timeStr = detail.availability[0]?.slots[0] || "6:00 PM";
-
-    createBooking({
-      mentorId: mentor.id,
-      mentorName: mentor.name,
-      mentorTitle: mentor.title,
-      mentorCompany: mentor.company,
-      mentorColor: mentor.color,
-      mentorInitials: mentor.initials,
-      sessionType: currentSess.name,
-      duration: currentSess.duration,
-      price: currentSess.price,
-      bookingDate: dateStr,
-      bookingTime: timeStr,
-    });
-
-    toast.success("Session booked successfully", {
-      description: `${mentor.name} • ${currentSess.name} • ${dateStr} at ${timeStr}`,
-    });
+    setShowCheckout(true);
   };
 
   if (!mentor || !detail || !extra) {
@@ -618,6 +601,18 @@ export function MentorDetailPage({
         </div>
       )}
 
+      {/* Luxury Checkout & Booking Modal */}
+      <CheckoutModal
+        isOpen={showCheckout}
+        onClose={() => setShowCheckout(false)}
+        mentor={mentor}
+        session={currentSess}
+        availability={detail.availability}
+        onMessageMentor={onMessageMentor}
+        onSuccessBooking={() => {
+          forceBookingsTick((n) => n + 1);
+        }}
+      />
     </div>
   );
 }

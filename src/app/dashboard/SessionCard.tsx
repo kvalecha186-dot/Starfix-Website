@@ -14,6 +14,7 @@ import {
   formatCountdown, meetingUrlFor, calendarUrlFor, sessionSummaryFor, setNotes,
   type Enrollment,
 } from "../lib/pathProgress";
+import { VideoCallModal } from "./VideoCallModal";
 
 /* ─────────────────────────────────────────────────────────────────────────
    Shared mentor-session state machine — the single source of truth for
@@ -69,6 +70,7 @@ export function SessionStateCard({
   const [, setTick] = useState(0);
   const [showQuestionBox, setShowQuestionBox] = useState(false);
   const [question, setQuestion] = useState("");
+  const [showVideoModal, setShowVideoModal] = useState(false);
 
   // Re-derive status every 20s — this is what moves the card from
   // scheduled → starting_soon → live → completed with no reload.
@@ -116,7 +118,7 @@ export function SessionStateCard({
   const handleJoin = () => {
     joinSession(enrollment.pathId);
     setTick((t) => t + 1);
-    window.open(meetingUrl, "_blank", "noopener,noreferrer");
+    setShowVideoModal(true);
     toast.success("You've joined the session", { description: `Live with ${mentor.name}` });
   };
 
@@ -175,7 +177,7 @@ export function SessionStateCard({
       {/* Action row — one per state, never a route change */}
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", marginTop: 18 }}>
 
-        {(status === "scheduled" || status === "starting_soon") && (
+        {status === "scheduled" && (
           <>
             <button
               disabled
@@ -197,21 +199,48 @@ export function SessionStateCard({
           </>
         )}
 
+        {status === "starting_soon" && (
+          <>
+            <motion.button
+              onClick={handleJoin}
+              whileHover={{ y: -2 }}
+              whileTap={{ scale: 0.97 }}
+              style={{
+                display: "flex", alignItems: "center", gap: 7, background: C.gold, color: "#fff",
+                border: "none", borderRadius: C.radiusSm, padding: "10px 18px",
+                fontSize: "0.8rem", fontWeight: 700, cursor: "pointer", fontFamily: "'Inter', sans-serif",
+              }}
+            >
+              <Video size={14} /> Join Video Call Early
+            </motion.button>
+            <GhostButton href={calendarUrl}><CalendarPlus size={14} /> Add to Calendar</GhostButton>
+            <button
+              onClick={() => setShowQuestionBox((v) => !v)}
+              style={{ display: "flex", alignItems: "center", gap: 7, background: "none", border: "none", padding: "10px 4px", fontSize: "0.8rem", fontWeight: 600, color: C.textMuted, cursor: "pointer", fontFamily: "'Inter', sans-serif" }}
+            >
+              <HelpCircle size={14} /> Add questions
+            </button>
+          </>
+        )}
+
         {status === "live" && !enrollment.sessionJoined && (
-          <motion.button
-            onClick={handleJoin}
-            whileHover={{ y: -2 }}
-            whileTap={{ scale: 0.97 }}
-            animate={{ boxShadow: ["0 0 0px 0px rgba(201,162,39,0.4)", "0 0 22px 4px rgba(201,162,39,0.4)", "0 0 0px 0px rgba(201,162,39,0.4)"] }}
-            transition={{ boxShadow: { duration: 1.8, repeat: Infinity, ease: "easeInOut" } }}
-            style={{
-              display: "flex", alignItems: "center", gap: 7, background: C.gold, color: "#fff",
-              border: "none", borderRadius: C.radiusSm, padding: "10px 18px",
-              fontSize: "0.8rem", fontWeight: 700, cursor: "pointer", fontFamily: "'Inter', sans-serif",
-            }}
-          >
-            <Video size={14} /> Join Session
-          </motion.button>
+          <>
+            <motion.button
+              onClick={handleJoin}
+              whileHover={{ y: -2 }}
+              whileTap={{ scale: 0.97 }}
+              animate={{ boxShadow: ["0 0 0px 0px rgba(201,162,39,0.4)", "0 0 22px 4px rgba(201,162,39,0.4)", "0 0 0px 0px rgba(201,162,39,0.4)"] }}
+              transition={{ boxShadow: { duration: 1.8, repeat: Infinity, ease: "easeInOut" } }}
+              style={{
+                display: "flex", alignItems: "center", gap: 7, background: C.gold, color: "#fff",
+                border: "none", borderRadius: C.radiusSm, padding: "10px 18px",
+                fontSize: "0.8rem", fontWeight: 700, cursor: "pointer", fontFamily: "'Inter', sans-serif",
+              }}
+            >
+              <Video size={14} /> Join Session (In-App)
+            </motion.button>
+            <GhostButton href={meetingUrl}><Video size={14} /> Open in New Tab</GhostButton>
+          </>
         )}
 
         {status === "live" && enrollment.sessionJoined && (
@@ -219,7 +248,18 @@ export function SessionStateCard({
             <span style={{ display: "flex", alignItems: "center", gap: 7, fontSize: "0.8rem", fontWeight: 600, color: "#0F9D6C" }}>
               <Check size={14} /> You're in the session
             </span>
-            <GhostButton href={meetingUrl}><Video size={14} /> Reopen meeting</GhostButton>
+            <motion.button
+              onClick={() => setShowVideoModal(true)}
+              whileHover={{ y: -1 }}
+              style={{
+                display: "flex", alignItems: "center", gap: 7, background: C.gold, color: "#fff",
+                border: "none", borderRadius: C.radiusSm, padding: "10px 18px",
+                fontSize: "0.8rem", fontWeight: 700, cursor: "pointer", fontFamily: "'Inter', sans-serif",
+              }}
+            >
+              <Video size={14} /> Reopen Call Room
+            </motion.button>
+            <GhostButton href={meetingUrl}><Video size={14} /> Open in New Tab</GhostButton>
           </>
         )}
 
@@ -299,6 +339,21 @@ export function SessionStateCard({
           </button>
         </div>
       )}
+
+      {/* Embedded Luxury WebRTC Call Room */}
+      <VideoCallModal
+        isOpen={showVideoModal}
+        onClose={() => {
+          setShowVideoModal(false);
+          setTick((t) => t + 1);
+        }}
+        meetingUrl={meetingUrl}
+        mentorName={mentor.name}
+        mentorInitials={mentor.initials}
+        mentorColor={mentor.color}
+        pathTitle={path?.title ?? enrollment.pathId}
+        onSessionReflection={handleReflectionComplete}
+      />
     </div>
   );
 }

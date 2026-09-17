@@ -1,6 +1,8 @@
 import type { PathDef } from "../dashboard/pages/GoalsPage";
 import { addNotification } from "./notifications";
 import { addXp, addTaskXp, undoTaskXp, XP_SOURCES } from "./xpSystem";
+import { supabase } from "./supabase";
+import { fetchEnrollmentsFromDb, saveEnrollmentToDb } from "./supabaseDb";
 
 /* ─────────────────────────────────────────────────────────────────────────
    Enrollment store — single source of truth for "has this learner started
@@ -112,6 +114,37 @@ function writeAll(data: Record<string, Enrollment>) {
   if (typeof window === "undefined") return;
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   window.dispatchEvent(new Event(ENROLLMENTS_CHANGED_EVENT));
+
+  // Asynchronously persist active enrollments to Supabase
+  supabase.auth.getSession().then(({ data: { session } }) => {
+    if (session?.user) {
+      for (const e of Object.values(data)) {
+        saveEnrollmentToDb(session.user.id, e).catch(() => {});
+      }
+    }
+  });
+}
+
+/* Sync all enrollments from Supabase on sign-in or reload */
+export async function syncEnrollmentsFromDb(): Promise<Record<string, Enrollment>> {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user) return readAll();
+
+    const remote = await fetchEnrollmentsFromDb(session.user.id);
+    if (remote && Object.keys(remote).length > 0) {
+      const local = readAll();
+      const merged = { ...local, ...remote };
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+        window.dispatchEvent(new Event(ENROLLMENTS_CHANGED_EVENT));
+      }
+      return merged;
+    }
+  } catch (err) {
+    console.warn("Could not sync enrollments from Supabase:", err);
+  }
+  return readAll();
 }
 
 export function isEnrolled(pathId: string): boolean {
@@ -304,13 +337,12 @@ export function formatCountdown(sessionAt: string): string {
   return `${m}m remaining`;
 }
 
-/* A stable, deterministic "meeting room" link — this is a demo product
-   with no real video backend, but the button must open *something*
-   real and specific rather than silently doing nothing or, worse,
-   navigating back to the dashboard. */
+/* A stable, live WebRTC video meeting room powered by Jitsi Meet.
+   Works instantly in the browser with HD video, audio, screen sharing,
+   and in-meeting chat with zero configuration. */
 export function meetingUrlFor(pathId: string, mentorName: string): string {
   const room = `${pathId}-${mentorName}`.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
-  return `https://meet.starfix.app/${room}`;
+  return `https://meet.jit.si/starfix-${room}#config.prejoinPageEnabled=false&config.startWithAudioMuted=false`;
 }
 
 /* Google Calendar "add event" deep link for the Scheduled state's

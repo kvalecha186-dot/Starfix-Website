@@ -11,7 +11,7 @@ import { PATHS } from "./GoalsPage";
 import {
   getConversations, getConversation, ensureConversation, sendMessage,
   markDelivered, markRead, archiveConversation, QUICK_CHIPS,
-  MESSAGES_CHANGED_EVENT, type Conversation,
+  MESSAGES_CHANGED_EVENT, TYPING_CHANGED_EVENT, isMentorTyping, type Conversation,
 } from "../../lib/messages";
 import {
   getAllEnrollments, getSessionStatus, formatCountdown,
@@ -365,7 +365,11 @@ export function MessagesPage({
 
   useEffect(() => {
     window.addEventListener(MESSAGES_CHANGED_EVENT, refresh);
-    return () => window.removeEventListener(MESSAGES_CHANGED_EVENT, refresh);
+    window.addEventListener(TYPING_CHANGED_EVENT, refresh);
+    return () => {
+      window.removeEventListener(MESSAGES_CHANGED_EVENT, refresh);
+      window.removeEventListener(TYPING_CHANGED_EVENT, refresh);
+    };
   }, []);
 
   useEffect(() => {
@@ -411,16 +415,9 @@ export function MessagesPage({
   // simulates that.
   const handleSend = (text: string) => {
     if (!selectedMentor || !text.trim()) return;
-    const convo = sendMessage(selectedMentor.id, text);
+    sendMessage(selectedMentor.id, text);
     setDraft("");
     refresh();
-    const lastId = convo?.messages.at(-1)?.id;
-    if (lastId) {
-      window.setTimeout(() => {
-        markDelivered(selectedMentor.id, lastId);
-        refresh();
-      }, 600);
-    }
   };
 
   const insertChip = (text: string) => setDraft((d) => (d ? `${d} ${text}` : text));
@@ -582,6 +579,30 @@ export function MessagesPage({
                 {isFreshThread && <OnboardingCard onPick={(text) => insertChip(text)} />}
                 <div style={{ padding: "8px 22px 6px" }}>
                   {selectedConvo.messages.map((m) => <MessageBubble key={m.id} msg={m} />)}
+                  {isMentorTyping(selectedMentor.id) && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "8px 0 10px" }}>
+                      <div
+                        style={{
+                          background: C.surfaceAlt,
+                          border: `1px solid ${C.border}`,
+                          borderRadius: "16px 16px 16px 4px",
+                          padding: "8px 14px",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 8,
+                        }}
+                      >
+                        <span style={{ fontSize: "0.76rem", color: C.textMuted, fontStyle: "italic" }}>
+                          {selectedMentor.name.split(" ")[0]} is typing
+                        </span>
+                        <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                          <span style={{ width: 4, height: 4, borderRadius: "50%", background: C.gold, display: "inline-block" }} />
+                          <span style={{ width: 4, height: 4, borderRadius: "50%", background: C.gold, display: "inline-block" }} />
+                          <span style={{ width: 4, height: 4, borderRadius: "50%", background: C.gold, display: "inline-block" }} />
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
