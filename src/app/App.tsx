@@ -1,7 +1,9 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useParams } from "react-router";
 import "../styles/fonts.css";
 import { Toaster } from "sonner";
+import { supabase } from "./lib/supabase";
+import { fetchProfileFromDb, saveProfileToDb } from "./lib/supabaseDb";
 import { PathMentorSelectionPage } from "./dashboard/pages/PathMentorSelectionPage";
 import { PathMentorProfilePage }   from "./dashboard/pages/PathMentorProfilePage";
 import { GrowthPathOverviewPage } from "./dashboard/pages/GrowthPathOverviewPage";
@@ -104,6 +106,50 @@ function AppShell() {
     return saved ? JSON.parse(saved) : null;
   });
 
+  // Listen to Supabase auth session changes & sync user profile
+  useEffect(() => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (session?.user) {
+        setLoggedIn(true);
+        localStorage.setItem("loggedIn", "true");
+        const dbProf = await fetchProfileFromDb(session.user.id);
+        if (dbProf) {
+          setUserProfile(dbProf);
+          localStorage.setItem("userProfile", JSON.stringify(dbProf));
+        }
+      }
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session?.user) {
+        setLoggedIn(true);
+        localStorage.setItem("loggedIn", "true");
+        const dbProf = await fetchProfileFromDb(session.user.id);
+        if (dbProf) {
+          setUserProfile(dbProf);
+          localStorage.setItem("userProfile", JSON.stringify(dbProf));
+        } else {
+          const meta = session.user.user_metadata || {};
+          const fallbackProf: UserProfile = {
+            ...DEFAULT_PROFILE,
+            name: meta.full_name || (session.user.email ? session.user.email.split("@")[0] : DEFAULT_PROFILE.name),
+            email: session.user.email || DEFAULT_PROFILE.email,
+          };
+          setUserProfile((prev) => prev || fallbackProf);
+        }
+      } else if (event === "SIGNED_OUT") {
+        setLoggedIn(false);
+        setUserProfile(null);
+        localStorage.removeItem("userProfile");
+        localStorage.removeItem("loggedIn");
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
   const handleComplete = useCallback(() => {
     sessionStorage.setItem("splashDone", "true");
     setSplashDone(true);
@@ -116,16 +162,24 @@ function AppShell() {
 
   const handleCloseOnboarding = useCallback(() => setShowOnboarding(false), []);
 
-  const handleOnboardingComplete = useCallback((profile: UserProfile) => {
+  const handleOnboardingComplete = useCallback(async (profile: UserProfile) => {
     setUserProfile(profile);
     localStorage.setItem("userProfile", JSON.stringify(profile));
     localStorage.setItem("loggedIn", "true");
     setShowOnboarding(false);
     setLoggedIn(true);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        await saveProfileToDb(session.user.id, profile);
+      }
+    } catch (err) {
+      console.warn("Could not sync onboarding profile to Supabase:", err);
+    }
   }, []);
 
   // Navbar "Log in" / "Get Started" — open the lightweight auth modal
-  // (distinct from the full multi-step Onboarding flow used elsewhere).
   const handleOpenLogin = useCallback(() => {
     setShowOnboarding(false);
     setAuthMode("login");
@@ -138,36 +192,48 @@ function AppShell() {
 
   const handleCloseAuth = useCallback(() => setAuthMode(null), []);
 
-  const handleAuthSuccess = useCallback((profile: { name: string; email: string }) => {
+  const handleAuthSuccess = useCallback((profile?: { name: string; email: string }) => {
     setAuthMode(null);
-    const saved = localStorage.getItem("userProfile");
-    const base: UserProfile = saved ? JSON.parse(saved) : DEFAULT_PROFILE;
-    const merged: UserProfile = { ...base, name: profile.name || base.name, email: profile.email || base.email };
-    setUserProfile(merged);
-    localStorage.setItem("userProfile", JSON.stringify(merged));
-    localStorage.setItem("loggedIn", "true");
-    setLoggedIn(true);
+    if (profile) {
+      const saved = localStorage.getItem("userProfile");
+      const base: UserProfile = saved ? JSON.parse(saved) : DEFAULT_PROFILE;
+      const merged: UserProfile = { ...base, name: profile.name || base.name, email: profile.email || base.email };
+      setUserProfile(merged);
+      localStorage.setItem("userProfile", JSON.stringify(merged));
+      localStorage.setItem("loggedIn", "true");
+      setLoggedIn(true);
+    }
   }, []);
 
-  const handleLogout = useCallback(() => {
+  const handleLogout = useCallback(async () => {
     setLoggedIn(false);
     setUserProfile(null);
     localStorage.removeItem("userProfile");
     localStorage.removeItem("loggedIn");
+    try {
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.warn("Supabase signOut error:", err);
+    }
   }, []);
 
   // Single source of truth for profile edits (e.g. Profile page "Save").
-  // Merges into the global userProfile, persists to localStorage, and — since
-  // every dashboard page reads this same userProfile prop — the change shows
-  // up in Dashboard, Sidebar, Growth Paths, Mentors, and Explore immediately,
-  // and survives route changes, refresh, and closing the browser.
-  const handleUpdateProfile = useCallback((patch: Partial<UserProfile>) => {
+  const handleUpdateProfile = useCallback(async (patch: Partial<UserProfile>) => {
     setUserProfile((prev) => {
       const base = prev ?? DEFAULT_PROFILE;
       const merged: UserProfile = { ...base, ...patch };
       localStorage.setItem("userProfile", JSON.stringify(merged));
       return merged;
     });
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        await saveProfileToDb(session.user.id, patch);
+      }
+    } catch (err) {
+      console.warn("Could not sync profile patch to Supabase:", err);
+    }
   }, []);
 
 

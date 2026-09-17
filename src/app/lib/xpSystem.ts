@@ -25,6 +25,9 @@
    pending/settlement cycle, exactly as before.
 ───────────────────────────────────────────────────────────────────────── */
 
+import { supabase } from "./supabase";
+import { recordXpInDb } from "./supabaseDb";
+
 const KEY = "starfix:xp";
 export const XP_CHANGED_EVENT = "starfix:xp-changed";
 export const XP_FLY_EVENT = "starfix:xp-fly";     // floating "+XP" badge
@@ -239,6 +242,16 @@ export function addXp(amount: number, reason?: string) {
   touchConsistency(s, amount > 0);
   pushLog(s, reason ?? (amount >= 0 ? "XP awarded" : "XP adjusted"), amount);
   write(s);
+
+  if (amount > 0) {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        recordXpInDb(session.user.id, amount, reason ?? "XP awarded", "award").catch((err) =>
+          console.warn("Async Supabase XP record failed:", err)
+        );
+      }
+    });
+  }
 }
 
 /* ── Task completion (Today's Mission / workspace action tasks) ─────────
@@ -255,6 +268,16 @@ export function addTaskXp(key: string, amount: number, label?: string) {
   touchConsistency(s, amount > 0);
   pushLog(s, label ?? "Task completed", amount);
   write(s);
+
+  if (amount > 0) {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        recordXpInDb(session.user.id, amount, label ?? "Task completed", "task", key).catch((err) =>
+          console.warn("Async Supabase task XP record failed:", err)
+        );
+      }
+    });
+  }
 }
 
 /* Unchecking a task. If its XP is still pending, the entry is simply

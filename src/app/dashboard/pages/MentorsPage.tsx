@@ -6,6 +6,7 @@ import { useViewport } from "../../lib/useViewport";
 import type { DashPage } from "../DashboardLayout";
 import type { UserProfile } from "../../types";
 import { GOAL_META } from "../../types";
+import { fetchMentorsFromDb } from "../../lib/supabaseDb";
 
 /* ─── Data ─────────────────────────────────────── */
 
@@ -101,21 +102,30 @@ const FILTER_PILLS = [
 export function MentorsPage({ onNavigate, userProfile, categoryOverride, onSelectMentor }: { onNavigate?: (p: DashPage) => void; userProfile?: UserProfile | null; categoryOverride?: string | null; onSelectMentor?: (id: number) => void }) {
   const { isDesktop, isMobile } = useViewport();
   const defaultCategory = categoryOverride || (userProfile?.goalId ? (GOAL_META[userProfile.goalId]?.categoryTab || "All") : "All");
+  const [mentorList, setMentorList] = useState<any[]>(MENTORS);
   const [search,   setSearch]   = useState("");
   const [category, setCategory] = useState(defaultCategory);
   const [filters,  setFilters]  = useState<string[]>([]);
 
   useEffect(() => { setCategory(defaultCategory); }, [defaultCategory]);
 
+  useEffect(() => {
+    fetchMentorsFromDb().then((dbMentors) => {
+      if (dbMentors && dbMentors.length > 0) {
+        setMentorList(dbMentors);
+      }
+    });
+  }, []);
+
   const toggleFilter = (key: string) =>
     setFilters((prev) => (prev.includes(key) ? prev.filter((f) => f !== key) : [...prev, key]));
 
-  const filtered = MENTORS.filter((m) => {
+  const filtered = mentorList.filter((m) => {
     const q = search.toLowerCase();
     const matchSearch =
       m.name.toLowerCase().includes(q) ||
       m.title.toLowerCase().includes(q) ||
-      m.skills.some((s) => s.toLowerCase().includes(q));
+      (Array.isArray(m.skills) && m.skills.some((s: string) => s.toLowerCase().includes(q)));
     const matchCat  = category === "All" || m.category === category;
     const matchFree  = !filters.includes("free")  || m.free;
     const matchToday = !filters.includes("today") || m.availability === "Today";

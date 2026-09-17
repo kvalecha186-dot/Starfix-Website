@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { X, ArrowRight, Eye, EyeOff } from "lucide-react";
+import { X, ArrowRight, Eye, EyeOff, MailCheck } from "lucide-react";
+import { supabase } from "../lib/supabase";
 
 /* Small multi-color "G" mark — kept as inline SVG so no external asset/
    network request is needed for the Google continue button. */
@@ -49,7 +50,7 @@ export function AuthModal({
 }: {
   mode: AuthMode;
   onClose: () => void;
-  onSuccess: (profile: { name: string; email: string }) => void;
+  onSuccess: (profile?: { name: string; email: string }) => void;
   onSwitchMode: (mode: AuthMode) => void;
 }) {
   const [name,     setName]     = useState("");
@@ -58,9 +59,13 @@ export function AuthModal({
   const [showPw,   setShowPw]   = useState(false);
   const [error,    setError]    = useState("");
   const [loading,  setLoading]  = useState(false);
+  // True once signUp() succeeds but Supabase requires email confirmation
+  // before a session exists — there's nothing more this modal can do until
+  // the learner clicks the link in their inbox.
+  const [awaitingConfirm, setAwaitingConfirm] = useState(false);
 
   /* Reset transient form state whenever the mode is switched */
-  useEffect(() => { setError(""); setLoading(false); }, [mode]);
+  useEffect(() => { setError(""); setLoading(false); setAwaitingConfirm(false); }, [mode]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
@@ -70,27 +75,54 @@ export function AuthModal({
 
   const isSignup = mode === "signup";
 
-  const runAuth = (profile: { name: string; email: string }) => {
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      onSuccess(profile);
-    }, 850);
+  const friendlyError = (message: string): string => {
+    if (/already registered|already exists/i.test(message)) return "An account with this email already exists — try logging in instead.";
+    if (/invalid login credentials/i.test(message)) return "That email or password doesn't match our records.";
+    if (/password.*(least|characters)/i.test(message)) return message; // Supabase's own message is already clear here
+    return message;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSignup && name.trim().length < 2) { setError("Please enter your full name."); return; }
     if (!email.includes("@")) { setError("Please enter a valid email."); return; }
     if (password.length < 1)  { setError("Please enter a password."); return; }
     setError("");
-    runAuth({ name: isSignup ? name.trim() : (name.trim() || email.split("@")[0]), email });
+    setLoading(true);
+
+    if (isSignup) {
+      const { data, error: err } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { data: { full_name: name.trim() } },
+      });
+      setLoading(false);
+      if (err) { setError(friendlyError(err.message)); return; }
+      if (data.session) { onSuccess(); }
+      else { setAwaitingConfirm(true); } // email confirmation is required before a session exists
+    } else {
+      const { error: err } = await supabase.auth.signInWithPassword({ email, password });
+      setLoading(false);
+      if (err) { setError(friendlyError(err.message)); return; }
+      onSuccess();
+    }
   };
 
-  const handleGoogle = () => {
+  const handleGoogle = async () => {
     setError("");
-    runAuth({ name: "Google User", email: "you@gmail.com" });
+    setLoading(true);
+    // This redirects the whole page to Google, so nothing after this call
+    // runs — onAuthStateChange picks up the session when the redirect
+    // returns. Requires the Google provider to be configured in Supabase
+    // Dashboard → Authentication → Providers; if it isn't, Supabase
+    // returns an error immediately instead of redirecting.
+    const { error: err } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: window.location.origin },
+    });
+    if (err) { setLoading(false); setError(friendlyError(err.message)); }
   };
+
 
   return (
     <motion.div
@@ -175,6 +207,38 @@ export function AuthModal({
           </p>
         </div>
 
+        {awaitingConfirm ? (
+          /* Signup succeeded but Supabase requires email confirmation
+             before a session exists — nothing more to do here except
+             tell the learner clearly, instead of leaving the modal
+             looking like nothing happened. */
+          <div style={{ textAlign: "center", padding: "8px 0 4px" }}>
+            <div style={{
+              width: 48, height: 48, margin: "0 auto 18px", borderRadius: "50%",
+              background: "rgba(212,175,55,0.12)", border: "1px solid rgba(212,175,55,0.28)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}>
+              <MailCheck size={20} color={GOLD} />
+            </div>
+            <p style={{ fontSize: "0.86rem", color: INK, margin: "0 0 8px", fontWeight: 600 }}>
+              Check your inbox
+            </p>
+            <p style={{ fontSize: "0.8rem", color: "rgba(250,249,246,0.42)", lineHeight: 1.6, margin: "0 0 24px" }}>
+              We sent a confirmation link to <span style={{ color: INK }}>{email}</span>. Click it to activate your account, then come back and log in.
+            </p>
+            <button
+              onClick={() => onSwitchMode("login")}
+              style={{
+                width: "100%", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)",
+                borderRadius: 999, padding: "12px 24px", color: INK, fontSize: "0.85rem", fontWeight: 600,
+                cursor: "pointer", fontFamily: "'Inter', sans-serif",
+              }}
+            >
+              Back to login
+            </button>
+          </div>
+        ) : (
+        <>
         {/* Google */}
         <motion.button
           type="button"
@@ -323,6 +387,8 @@ export function AuthModal({
             {isSignup ? "Log in" : "Get started →"}
           </button>
         </div>
+        </>
+        )}
       </motion.div>
     </motion.div>
   );
@@ -331,7 +397,7 @@ export function AuthModal({
 export function AuthModalPortal(props: {
   mode: AuthMode | null;
   onClose: () => void;
-  onSuccess: (profile: { name: string; email: string }) => void;
+  onSuccess: (profile?: { name: string; email: string }) => void;
   onSwitchMode: (mode: AuthMode) => void;
 }) {
   return (

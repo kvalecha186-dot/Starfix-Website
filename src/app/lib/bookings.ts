@@ -18,9 +18,29 @@ export interface Booking {
   notes?: string;
 }
 
+import { supabase } from "./supabase";
+import { insertBookingToDb, cancelBookingInDb, fetchBookingsFromDb } from "./supabaseDb";
+
 export const BOOKINGS_CHANGED_EVENT = "starfix_bookings_changed";
 
 const STORAGE_KEY = "starfix_bookings";
+
+/* Sync bookings from Supabase into local cache if logged in */
+export async function syncBookingsFromDb(): Promise<Booking[]> {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user) return getBookings();
+
+    const remoteBookings = await fetchBookingsFromDb(session.user.id);
+    if (remoteBookings && remoteBookings.length > 0) {
+      saveBookings(remoteBookings);
+      return remoteBookings;
+    }
+  } catch (err) {
+    console.warn("Could not sync bookings from Supabase:", err);
+  }
+  return getBookings();
+}
 
 /* Read all bookings from storage */
 export function getBookings(): Booking[] {
@@ -66,6 +86,16 @@ export function createBooking(data: Omit<Booking, "id" | "createdAt" | "status">
   const bookings = getBookings();
   const updated = [newBooking, ...bookings];
   saveBookings(updated);
+
+  // Asynchronously persist to Supabase if logged in
+  supabase.auth.getSession().then(({ data: { session } }) => {
+    if (session?.user) {
+      insertBookingToDb(session.user.id, newBooking).catch((err) =>
+        console.warn("Async Supabase booking insert failed:", err)
+      );
+    }
+  });
+
   return newBooking;
 }
 
@@ -81,6 +111,12 @@ export function cancelBooking(bookingId: string): boolean {
   };
 
   saveBookings(bookings);
+
+  // Asynchronously update in Supabase
+  cancelBookingInDb(bookingId).catch((err) =>
+    console.warn("Async Supabase booking cancellation failed:", err)
+  );
+
   return true;
 }
 
