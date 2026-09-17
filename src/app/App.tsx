@@ -2,43 +2,35 @@ import { useState, useCallback, useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useParams } from "react-router";
 import "../styles/fonts.css";
 import { Toaster } from "sonner";
-import { supabase } from "./lib/supabase";
-import { fetchProfileFromDb, saveProfileToDb } from "./lib/supabaseDb";
 import { PathMentorSelectionPage } from "./dashboard/pages/PathMentorSelectionPage";
-import { PathMentorProfilePage }   from "./dashboard/pages/PathMentorProfilePage";
+import { PathMentorProfilePage } from "./dashboard/pages/PathMentorProfilePage";
 import { GrowthPathOverviewPage } from "./dashboard/pages/GrowthPathOverviewPage";
-import { ActivationPage }        from "./dashboard/pages/ActivationPage";
-import { MyPathWorkspace }       from "./dashboard/pages/MyPathWorkspace";
-import { SplashScreen }          from "./components/SplashScreen";
-import { Onboarding }            from "./components/Onboarding";
-import { AuthModalPortal, type AuthMode } from "./components/AuthModal";
+import { ActivationPage } from "./dashboard/pages/ActivationPage";
+import { MyPathWorkspace } from "./dashboard/pages/MyPathWorkspace";
+import { SplashScreen } from "./components/SplashScreen";
+import { Onboarding } from "./components/Onboarding";
+import { SupabaseAuthModal, type SupabaseAuthMode } from "./components/SupabaseAuthModal";
 import { AnimatePresence, motion } from "motion/react";
-import { Navbar }                from "./components/Navbar";
-import { HeroSection }           from "./components/HeroSection";
-import { StarJourney }           from "./components/StarJourney";
-import { WhyStarfixWorks }       from "./components/WhyStarfixWorks";
-import { HowItWorks }            from "./components/HowItWorks";
+import { Navbar } from "./components/Navbar";
+import { HeroSection } from "./components/HeroSection";
+import { StarJourney } from "./components/StarJourney";
+import { WhyStarfixWorks } from "./components/WhyStarfixWorks";
+import { HowItWorks } from "./components/HowItWorks";
 import { TransformationPillars } from "./components/TransformationPillars";
 import { ConstellationProgress } from "./components/ConstellationProgress";
-import { MentorSection }         from "./components/MentorSection";
-import { DailyMissions }         from "./components/DailyMissions";
-import { SuccessStories }        from "./components/SuccessStories";
-import { PricingSection }        from "./components/PricingSection";
-import { CTASection }            from "./components/CTASection";
-import { Footer }                from "./components/Footer";
-import { DashboardLayout }       from "./dashboard/DashboardLayout";
-import { AdminLayout }           from "./admin/AdminLayout";
-import type { UserProfile }      from "./types";
-import { GOAL_META }             from "./types";
+import { MentorSection } from "./components/MentorSection";
+import { DailyMissions } from "./components/DailyMissions";
+import { SuccessStories } from "./components/SuccessStories";
+import { PricingSection } from "./components/PricingSection";
+import { CTASection } from "./components/CTASection";
+import { Footer } from "./components/Footer";
+import { DashboardLayout } from "./dashboard/DashboardLayout";
+import { AdminLayout } from "./admin/AdminLayout";
+import type { UserProfile } from "./types";
+import { GOAL_META } from "./types";
+import { getProfile, supabase, upsertProfile } from "./lib/supabase";
+import { initializeBackendSync } from "./lib/backendSync";
 
-/* MARKER-MAKE-KIT-INVOKED */
-
-/* Permanent redirects for retired route prefixes. If anyone lands on an
-   old /paths/:id or /my-paths/:id URL — a stale bookmark, a leftover
-   browser-history entry from before this migration, a stale link
-   somewhere — they're bounced straight to the current /growth-paths/
-   route via history REPLACE (never PUSH), so the old URL never lingers
-   as a navigable history entry either. */
 function RedirectToOverview() {
   const { pathId } = useParams<{ pathId: string }>();
   return <Navigate to={`/growth-paths/${pathId}`} replace />;
@@ -48,14 +40,13 @@ function RedirectToJourney() {
   return <Navigate to={`/growth-paths/${pathId}/journey`} replace />;
 }
 
-/* Default profile for users who sign in without onboarding */
 const DEFAULT_PROFILE: UserProfile = {
-  name:       "Khushi Agarwal",
-  email:      "khushi@example.com",
-  goalId:     "coding",
-  goalTitle:  GOAL_META["coding"].title,
-  level:      "intermediate",
-  dailyTime:  "30min",
+  name: "Starfix Learner",
+  email: "",
+  goalId: "coding",
+  goalTitle: GOAL_META.coding.title,
+  level: "beginner",
+  dailyTime: "30min",
   preference: "roadmap",
 };
 
@@ -64,22 +55,13 @@ export default function App() {
     <BrowserRouter>
       <Toaster position="top-center" richColors />
       <Routes>
-        {/* Public, dynamic per-path pages — work identically for every Growth
-           Path (Coding, Fitness, Meditation, Drawing, ...), never just Coding.
-           /growth-paths/:pathId is the ONLY overview route in the app — the
-           old /paths/:pathId page (PathOverviewPage.tsx) has been fully
-           retired and nothing links to it anymore. */}
         <Route path="/growth-paths" element={<AppShell />} />
         <Route path="/growth-paths/:pathId" element={<GrowthPathOverviewPage />} />
         <Route path="/growth-paths/:pathId/journey" element={<MyPathWorkspace />} />
         <Route path="/growth-paths/:pathId/mentors" element={<PathMentorSelectionPage />} />
         <Route path="/growth-paths/:pathId/mentors/:mentorId" element={<PathMentorProfilePage />} />
         <Route path="/activate/:pathId" element={<ActivationPage />} />
-
-        {/* Retired route prefixes — permanent redirect, not a live page. */}
         <Route path="/my-paths/:pathId" element={<RedirectToJourney />} />
-        {/* Everything else — splash / onboarding / landing / dashboard / admin — 
-           is handled by the existing app shell below. */}
         <Route path="*" element={<AppShell />} />
       </Routes>
     </BrowserRouter>
@@ -87,66 +69,63 @@ export default function App() {
 }
 
 function AppShell() {
-  // Standalone admin panel entry point — /admin bypasses the learner-facing
-  // splash/onboarding/login flow entirely. Computed once; doesn't change
-  // during this component's lifetime, so it's safe to branch on at render
-  // time without affecting hook order below.
   const isAdmin = typeof window !== "undefined" && window.location.pathname.startsWith("/admin");
-
-  const [splashDone,     setSplashDone]     = useState(() => {
-    return typeof window !== "undefined" && sessionStorage.getItem("splashDone") === "true";
-  });
+  const [splashDone, setSplashDone] = useState(() => typeof window !== "undefined" && sessionStorage.getItem("splashDone") === "true");
   const [showOnboarding, setShowOnboarding] = useState(false);
-  const [authMode,       setAuthMode]       = useState<AuthMode | null>(null);
-  const [loggedIn,       setLoggedIn]       = useState(() => {
-    return localStorage.getItem("loggedIn") === "true";
-  });
-  const [userProfile,    setUserProfile]    = useState<UserProfile | null>(() => {
-    const saved = localStorage.getItem("userProfile");
-    return saved ? JSON.parse(saved) : null;
-  });
+  const [authMode, setAuthMode] = useState<SupabaseAuthMode | null>(null);
+  const [loggedIn, setLoggedIn] = useState(false);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
 
-  // Listen to Supabase auth session changes & sync user profile
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (session?.user) {
-        setLoggedIn(true);
-        localStorage.setItem("loggedIn", "true");
-        const dbProf = await fetchProfileFromDb(session.user.id);
-        if (dbProf) {
-          setUserProfile(dbProf);
-          localStorage.setItem("userProfile", JSON.stringify(dbProf));
-        }
-      }
-    });
+    let alive = true;
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    async function syncSession() {
+      const { data } = await supabase.auth.getSession();
+      if (!alive) return;
+      const session = data.session;
+      setLoggedIn(!!session);
       if (session?.user) {
-        setLoggedIn(true);
-        localStorage.setItem("loggedIn", "true");
-        const dbProf = await fetchProfileFromDb(session.user.id);
-        if (dbProf) {
-          setUserProfile(dbProf);
-          localStorage.setItem("userProfile", JSON.stringify(dbProf));
-        } else {
-          const meta = session.user.user_metadata || {};
-          const fallbackProf: UserProfile = {
-            ...DEFAULT_PROFILE,
-            name: meta.full_name || (session.user.email ? session.user.email.split("@")[0] : DEFAULT_PROFILE.name),
-            email: session.user.email || DEFAULT_PROFILE.email,
-          };
-          setUserProfile((prev) => prev || fallbackProf);
-        }
-      } else if (event === "SIGNED_OUT") {
-        setLoggedIn(false);
+        const profile = await getProfile(session.user.id);
+        if (!alive) return;
+        setUserProfile(profile || {
+          ...DEFAULT_PROFILE,
+          name: session.user.user_metadata?.full_name || session.user.email?.split("@")[0] || DEFAULT_PROFILE.name,
+          email: session.user.email || "",
+        });
+        void initializeBackendSync();
+      } else {
         setUserProfile(null);
-        localStorage.removeItem("userProfile");
-        localStorage.removeItem("loggedIn");
       }
+      setAuthLoading(false);
+    }
+
+    void syncSession();
+
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!alive) return;
+      setLoggedIn(!!session);
+      if (!session) {
+        setUserProfile(null);
+        setAuthLoading(false);
+        return;
+      }
+      void initializeBackendSync();
+      void getProfile(session.user.id).then((profile) => {
+        if (!alive) return;
+        setUserProfile(profile || {
+          ...DEFAULT_PROFILE,
+          name: session.user.user_metadata?.full_name || session.user.email?.split("@")[0] || DEFAULT_PROFILE.name,
+          email: session.user.email || "",
+        });
+        setAuthLoading(false);
+      });
+      if (event === "SIGNED_IN") setAuthMode(null);
     });
 
     return () => {
-      subscription.unsubscribe();
+      alive = false;
+      listener.subscription.unsubscribe();
     };
   }, []);
 
@@ -165,21 +144,17 @@ function AppShell() {
   const handleOnboardingComplete = useCallback(async (profile: UserProfile) => {
     setUserProfile(profile);
     localStorage.setItem("userProfile", JSON.stringify(profile));
-    localStorage.setItem("loggedIn", "true");
     setShowOnboarding(false);
-    setLoggedIn(true);
-
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        await saveProfileToDb(session.user.id, profile);
-      }
-    } catch (err) {
-      console.warn("Could not sync onboarding profile to Supabase:", err);
+    const { data } = await supabase.auth.getSession();
+    if (data.session?.user) {
+      await upsertProfile(data.session.user.id, profile);
+      void initializeBackendSync();
+    } else {
+      localStorage.setItem("loggedIn", "true");
+      setLoggedIn(true);
     }
   }, []);
 
-  // Navbar "Log in" / "Get Started" — open the lightweight auth modal
   const handleOpenLogin = useCallback(() => {
     setShowOnboarding(false);
     setAuthMode("login");
@@ -192,88 +167,41 @@ function AppShell() {
 
   const handleCloseAuth = useCallback(() => setAuthMode(null), []);
 
-  const handleAuthSuccess = useCallback((profile?: { name: string; email: string }) => {
-    setAuthMode(null);
-    if (profile) {
-      const saved = localStorage.getItem("userProfile");
-      const base: UserProfile = saved ? JSON.parse(saved) : DEFAULT_PROFILE;
-      const merged: UserProfile = { ...base, name: profile.name || base.name, email: profile.email || base.email };
-      setUserProfile(merged);
-      localStorage.setItem("userProfile", JSON.stringify(merged));
-      localStorage.setItem("loggedIn", "true");
-      setLoggedIn(true);
-    }
-  }, []);
-
   const handleLogout = useCallback(async () => {
-    setLoggedIn(false);
-    setUserProfile(null);
+    await supabase.auth.signOut();
     localStorage.removeItem("userProfile");
     localStorage.removeItem("loggedIn");
-    try {
-      await supabase.auth.signOut();
-    } catch (err) {
-      console.warn("Supabase signOut error:", err);
-    }
+    setUserProfile(null);
+    setLoggedIn(false);
   }, []);
 
-  // Single source of truth for profile edits (e.g. Profile page "Save").
-  const handleUpdateProfile = useCallback(async (patch: Partial<UserProfile>) => {
+  const handleUpdateProfile = useCallback((patch: Partial<UserProfile>) => {
     setUserProfile((prev) => {
-      const base = prev ?? DEFAULT_PROFILE;
-      const merged: UserProfile = { ...base, ...patch };
+      const merged: UserProfile = { ...(prev ?? DEFAULT_PROFILE), ...patch };
       localStorage.setItem("userProfile", JSON.stringify(merged));
+      void supabase.auth.getUser().then(({ data }) => {
+        if (data.user) void upsertProfile(data.user.id, merged);
+      });
       return merged;
     });
-
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        await saveProfileToDb(session.user.id, patch);
-      }
-    } catch (err) {
-      console.warn("Could not sync profile patch to Supabase:", err);
-    }
   }, []);
 
+  if (isAdmin) return <AdminLayout />;
+  if (authLoading) return <div style={{ minHeight: "100vh", background: "#050510" }} />;
 
   return (
     <div style={{ minHeight: "100vh" }}>
-      {isAdmin ? (
-        <AdminLayout />
-      ) : (
-        <>
-      {/* ── Splash ── */}
       {!splashDone && <SplashScreen onComplete={handleComplete} />}
 
-      {/* ── Dashboard ── */}
       {splashDone && loggedIn && (
-        <motion.div
-          key="dashboard"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.45 }}
-        >
+        <motion.div key="dashboard" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.45 }}>
           <DashboardLayout onLogout={handleLogout} userProfile={userProfile} onUpdateProfile={handleUpdateProfile} />
         </motion.div>
       )}
 
-      {/* ── Landing page ── */}
       {splashDone && !loggedIn && (
-        <motion.div
-          key="landing"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.6, ease: "easeOut" }}
-          style={{ background: "#050510", color: "#FAF9F6" }}
-        >
-          <Navbar
-            loggedIn={loggedIn}
-            userName={userProfile?.name}
-            onLogin={handleOpenLogin}
-            onGetStarted={handleOpenSignup}
-            onProfileClick={() => setLoggedIn(true)}
-          />
+        <motion.div key="landing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.6, ease: "easeOut" }} style={{ background: "#050510", color: "#FAF9F6" }}>
+          <Navbar loggedIn={loggedIn} userName={userProfile?.name} onLogin={handleOpenLogin} onGetStarted={handleOpenSignup} onProfileClick={() => setAuthMode("login")} />
           <HeroSection />
           <div id="star-journey"><StarJourney /></div>
           <div id="how-it-works"><HowItWorks /></div>
@@ -284,34 +212,18 @@ function AppShell() {
           <DailyMissions />
           <div id="stories"><SuccessStories /></div>
           <div id="pricing"><PricingSection onStartOnboarding={handleStartOnboarding} /></div>
-          <CTASection
-            onStartOnboarding={handleStartOnboarding}
-            onLogin={handleOpenLogin}
-          />
+          <CTASection onStartOnboarding={handleStartOnboarding} onLogin={handleOpenLogin} />
           <Footer />
         </motion.div>
       )}
 
-      {/* ── Onboarding overlay ── */}
       <AnimatePresence>
         {showOnboarding && (
-          <Onboarding
-            onClose={handleCloseOnboarding}
-            onComplete={handleOnboardingComplete}
-            onOpenLogin={handleOpenLogin}
-          />
+          <Onboarding onClose={handleCloseOnboarding} onComplete={handleOnboardingComplete} onOpenLogin={handleOpenLogin} />
         )}
       </AnimatePresence>
 
-      {/* ── Auth modal (Log in / Get Started) ── */}
-      <AuthModalPortal
-        mode={authMode}
-        onClose={handleCloseAuth}
-        onSuccess={handleAuthSuccess}
-        onSwitchMode={setAuthMode}
-      />
-        </>
-      )}
+      <SupabaseAuthModal mode={authMode} onClose={handleCloseAuth} onSuccess={() => undefined} onSwitchMode={setAuthMode} />
     </div>
   );
 }
