@@ -335,11 +335,10 @@ export async function fetchMessagesFromDb(userId: string, mentorId?: number): Pr
     let query = supabase
       .from("messages")
       .select("*")
-      .eq("user_id", userId)
       .order("created_at", { ascending: true });
 
     if (mentorId !== undefined) {
-      query = query.eq("mentor_id", mentorId);
+      query = query.eq("conversation_id", `conv_${userId}_${mentorId}`);
     }
 
     const { data, error } = await query;
@@ -347,7 +346,13 @@ export async function fetchMessagesFromDb(userId: string, mentorId?: number): Pr
       console.warn("Could not fetch messages from Supabase:", error.message);
       return null;
     }
-    return data;
+    return (data || []).map((m: any) => ({
+      id: m.id,
+      sender: m.sender || "user",
+      text: m.body || m.text || "",
+      sentAt: m.created_at,
+      status: m.status,
+    }));
   } catch (err) {
     console.warn("Exception fetching messages from Supabase:", err);
     return null;
@@ -362,17 +367,15 @@ export async function sendMessageToDb(
 ): Promise<boolean> {
   try {
     const conversationId = `conv_${userId}_${mentorId}`;
-    const id = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+    const id = crypto.randomUUID();
 
     const { error } = await supabase
       .from("messages")
       .insert({
         id,
         conversation_id: conversationId,
-        user_id: userId,
-        mentor_id: mentorId,
-        sender_type: senderType,
-        text,
+        sender: senderType,
+        body: text,
         status: "sent",
       });
 
