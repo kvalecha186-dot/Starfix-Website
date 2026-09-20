@@ -683,3 +683,9 @@ export function scheduleMentorWelcomeReply(mentorName: string, pathId: string) {
   }, 4000);
 }
 
+export function clearEnrollments(): void {
+  if (typeof window === "undefined") return;
+  window.localStorage.removeItem(STORAGE_KEY);
+  window.dispatchEvent(new Event(ENROLLMENTS_CHANGED_EVENT));
+}
+

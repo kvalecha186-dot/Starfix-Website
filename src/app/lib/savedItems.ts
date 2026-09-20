@@ -1,3 +1,6 @@
+import { supabase } from "./supabase";
+import { fetchSavedItemsFromDb, saveItemToDb, removeSavedItemFromDb } from "./supabaseDb";
+
 export interface SavedItem {
   id: string;
   type: string;
@@ -32,17 +35,58 @@ export function isItemSaved(id: string): boolean {
 export function saveItem(item: Omit<SavedItem, "savedAt">): SavedItem[] {
   const existing = getSavedItems();
   if (existing.some((i) => i.id === item.id)) return existing;
-  const next = [{ ...item, savedAt: new Date().toISOString() }, ...existing];
+  const fullItem: SavedItem = { ...item, savedAt: new Date().toISOString() };
+  const next = [fullItem, ...existing];
   try { localStorage.setItem(KEY, JSON.stringify(next)); notify(); } catch {}
+
+  // Asynchronously persist to Supabase
+  supabase.auth.getSession().then(({ data: { session } }) => {
+    if (session?.user) {
+      void saveItemToDb(session.user.id, fullItem);
+    }
+  });
+
   return next;
 }
 
 export function removeSavedItem(id: string): SavedItem[] {
   const next = getSavedItems().filter((i) => i.id !== id);
   try { localStorage.setItem(KEY, JSON.stringify(next)); notify(); } catch {}
+
+  // Asynchronously delete from Supabase
+  supabase.auth.getSession().then(({ data: { session } }) => {
+    if (session?.user) {
+      void removeSavedItemFromDb(session.user.id, id);
+    }
+  });
+
   return next;
+}
+
+export async function hydrateSavedItems(userId?: string): Promise<SavedItem[]> {
+  try {
+    let uid = userId;
+    if (!uid) {
+      const { data } = await supabase.auth.getUser();
+      uid = data.user?.id;
+    }
+    if (!uid) return getSavedItems();
+
+    const remote = await fetchSavedItemsFromDb(uid);
+    if (remote && Array.isArray(remote)) {
+      if (typeof window !== "undefined") {
+        localStorage.setItem(KEY, JSON.stringify(remote));
+        notify();
+      }
+      return remote;
+    }
+  } catch (err) {
+    console.warn("Could not hydrate saved items from Supabase:", err);
+  }
+  return getSavedItems();
 }
 
 export function clearSavedItems(): void {
   try { localStorage.setItem(KEY, JSON.stringify([])); notify(); } catch {}
 }
+

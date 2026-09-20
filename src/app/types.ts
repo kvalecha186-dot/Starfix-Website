@@ -7,6 +7,12 @@ export interface UserProfile {
   dailyTime: string;
   preference: "mentorship" | "roadmap" | "community";
   obstacle?: string;
+  /* Mirrors profiles.role in Supabase — the single source of truth for
+     role-based routing/gating (Phase 1). Never trust a locally-cached
+     copy of this for anything security-sensitive; always re-derive it
+     from a fresh DB read when the decision actually matters (e.g. the
+     /admin gate in App.tsx re-fetches rather than reusing this). */
+  role?: "student" | "mentor" | "admin";
   // Collected during onboarding, before the learner ever reaches the
   // dashboard. Used purely for content curation — which real creators get
   // recommended for each Growth Path milestone (see lib/curatedContent.ts).

@@ -9,6 +9,8 @@ import { ActivationPage } from "./dashboard/pages/ActivationPage";
 import { MyPathWorkspace } from "./dashboard/pages/MyPathWorkspace";
 import { SplashScreen } from "./components/SplashScreen";
 import { Onboarding } from "./components/Onboarding";
+import { RoleChoice } from "./components/RoleChoice";
+import { MentorOnboarding } from "./components/MentorOnboarding";
 import { SupabaseAuthModal, type SupabaseAuthMode } from "./components/SupabaseAuthModal";
 import { AnimatePresence, motion } from "motion/react";
 import { Navbar } from "./components/Navbar";
@@ -29,7 +31,7 @@ import { AdminLayout } from "./admin/AdminLayout";
 import type { UserProfile } from "./types";
 import { GOAL_META } from "./types";
 import { getProfile, supabase, upsertProfile } from "./lib/supabase";
-import { initializeBackendSync } from "./lib/backendSync";
+import { initializeBackendSync, clearAllUserData } from "./lib/backendSync";
 
 function RedirectToOverview() {
   const { pathId } = useParams<{ pathId: string }>();
@@ -72,6 +74,8 @@ function AppShell() {
   const isAdmin = typeof window !== "undefined" && window.location.pathname.startsWith("/admin");
   const [splashDone, setSplashDone] = useState(() => typeof window !== "undefined" && sessionStorage.getItem("splashDone") === "true");
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [roleChoiceOpen, setRoleChoiceOpen] = useState(false);
+  const [mentorOnboardingOpen, setMentorOnboardingOpen] = useState(false);
   const [authMode, setAuthMode] = useState<SupabaseAuthMode | null>(null);
   const [loggedIn, setLoggedIn] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
@@ -149,9 +153,30 @@ function AppShell() {
     setSplashDone(true);
   }, []);
 
+  // "Get Started" (Pricing / CTA sections) now opens the role gate first.
+  // The existing student flow is untouched — picking Student below opens
+  // the exact same Onboarding component this used to open directly.
   const handleStartOnboarding = useCallback(() => {
     setAuthMode(null);
+    setRoleChoiceOpen(true);
+  }, []);
+
+  const handlePickStudent = useCallback(() => {
+    setRoleChoiceOpen(false);
     setShowOnboarding(true);
+  }, []);
+
+  const handlePickMentor = useCallback(() => {
+    setRoleChoiceOpen(false);
+    setMentorOnboardingOpen(true);
+  }, []);
+
+  // MentorOnboarding handles its own supabase.auth.signUp() + profiles.role
+  // update internally; once it calls back here, a real session already
+  // exists and the onAuthStateChange listener above (already running)
+  // picks up the new session/profile on its own — nothing else to do here.
+  const handleMentorOnboardingComplete = useCallback(() => {
+    setMentorOnboardingOpen(false);
   }, []);
 
   const handleCloseOnboarding = useCallback(() => setShowOnboarding(false), []);
@@ -186,6 +211,7 @@ function AppShell() {
     await supabase.auth.signOut();
     localStorage.removeItem("userProfile");
     localStorage.removeItem("loggedIn");
+    clearAllUserData();
     setUserProfile(null);
     setLoggedIn(false);
   }, []);
@@ -237,6 +263,18 @@ function AppShell() {
           <Onboarding onClose={handleCloseOnboarding} onComplete={handleOnboardingComplete} onOpenLogin={handleOpenLogin} />
         )}
       </AnimatePresence>
+
+      <RoleChoice
+        open={roleChoiceOpen}
+        onClose={() => setRoleChoiceOpen(false)}
+        onPickStudent={handlePickStudent}
+        onPickMentor={handlePickMentor}
+      />
+      <MentorOnboarding
+        open={mentorOnboardingOpen}
+        onClose={() => setMentorOnboardingOpen(false)}
+        onComplete={handleMentorOnboardingComplete}
+      />
 
       <SupabaseAuthModal mode={authMode} onClose={handleCloseAuth} onSuccess={() => undefined} onSwitchMode={setAuthMode} />
     </div>

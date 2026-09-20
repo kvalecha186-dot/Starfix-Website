@@ -7,6 +7,9 @@
    what powers a real Netflix-style "Continue Watching" row.
 ───────────────────────────────────────────────────────────────────────── */
 
+import { supabase } from "./supabase";
+import { fetchWatchQueueFromDb, upsertWatchQueueToDb, removeWatchQueueFromDb } from "./supabaseDb";
+
 export const WATCH_QUEUE_CHANGED_EVENT = "starfix:watchqueue-changed";
 const STORAGE_KEY = "starfix:watchQueue";
 
@@ -100,6 +103,14 @@ export function upsertWatch(input: {
   const item: WatchQueueItem = { id, ...input, lastWatchedAt: new Date().toISOString() };
   all[id] = item;
   writeAll(all);
+
+  // Asynchronously persist to Supabase
+  supabase.auth.getSession().then(({ data: { session } }) => {
+    if (session?.user) {
+      void upsertWatchQueueToDb(session.user.id, item);
+    }
+  });
+
   return item;
 }
 
@@ -119,6 +130,13 @@ export function bumpProgress(id: string, elapsedMin: number): WatchQueueItem | u
   };
   all[id] = updated;
   writeAll(all);
+
+  supabase.auth.getSession().then(({ data: { session } }) => {
+    if (session?.user) {
+      void upsertWatchQueueToDb(session.user.id, updated);
+    }
+  });
+
   return updated;
 }
 
@@ -126,8 +144,15 @@ export function setWatchComplete(id: string): void {
   const all = readAll();
   const item = all[id];
   if (!item) return;
-  all[id] = { ...item, pct: 100, elapsedMin: item.totalMin, lastWatchedAt: new Date().toISOString() };
+  const updated = { ...item, pct: 100, elapsedMin: item.totalMin, lastWatchedAt: new Date().toISOString() };
+  all[id] = updated;
   writeAll(all);
+
+  supabase.auth.getSession().then(({ data: { session } }) => {
+    if (session?.user) {
+      void upsertWatchQueueToDb(session.user.id, updated);
+    }
+  });
 }
 
 export function removeFromQueue(id: string): void {
@@ -135,9 +160,43 @@ export function removeFromQueue(id: string): void {
   if (!all[id]) return;
   delete all[id];
   writeAll(all);
+
+  supabase.auth.getSession().then(({ data: { session } }) => {
+    if (session?.user) {
+      void removeWatchQueueFromDb(session.user.id, id);
+    }
+  });
+}
+
+export async function hydrateWatchQueue(userId?: string): Promise<Record<string, WatchQueueItem>> {
+  try {
+    let uid = userId;
+    if (!uid) {
+      const { data } = await supabase.auth.getUser();
+      uid = data.user?.id;
+    }
+    if (!uid) return readAll();
+
+    const remote = await fetchWatchQueueFromDb(uid);
+    if (remote && Array.isArray(remote) && remote.length > 0) {
+      const map: Record<string, WatchQueueItem> = {};
+      remote.forEach((item: WatchQueueItem) => {
+        if (item.id) map[item.id] = item;
+      });
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(map));
+        window.dispatchEvent(new Event(WATCH_QUEUE_CHANGED_EVENT));
+      }
+      return map;
+    }
+  } catch (err) {
+    console.warn("Could not hydrate watch queue from Supabase:", err);
+  }
+  return readAll();
 }
 
 /* Settings → Data & Storage → "Clear watch history". */
 export function clearWatchQueue(): void {
   writeAll({});
 }
+

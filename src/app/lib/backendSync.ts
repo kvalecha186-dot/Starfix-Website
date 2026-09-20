@@ -1,23 +1,101 @@
 import { supabase } from "./supabase";
-import { hydrateBookings } from "./bookings";
-import { hydrateMessages } from "./messages";
+import { hydrateBookings, clearBookings } from "./bookings";
+import { hydrateMessages, clearConversations } from "./messages";
+import { syncEnrollmentsFromDb, clearEnrollments } from "./pathProgress";
+import { hydrateSavedItems, clearSavedItems } from "./savedItems";
+import { hydrateWatchQueue, clearWatchQueue } from "./watchQueue";
+import { hydrateNotifications, clearNotifications } from "./notifications";
+import { hydrateXp, clearXp } from "./xpSystem";
+import { saveEnrollmentToDb } from "./supabaseDb";
 
-const EVENTS = ["starfix:appsettings-changed","starfix:saveditems-changed","starfix:watchqueue-changed","starfix:notifications-changed","starfix:xp-changed","starfix:enrollments-changed"] as const;
 let startedForUser: string | null = null;
 let syncing = false;
-async function currentUserId(): Promise<string | null> { const { data } = await supabase.auth.getUser(); return data.user?.id ?? null; }
 
-async function syncSettings(userId:string){const raw=localStorage.getItem("starfix:appSettings");if(!raw)return;let s:any;try{s=JSON.parse(raw);}catch{return;}await supabase.from("app_settings").upsert({user_id:userId,autoplay_next_video:!!s.autoplayNextVideo,show_subtitles:!!s.showSubtitles,daily_reminder_notifications:!!s.dailyReminderNotifications,weekly_progress_email:!!s.weeklyProgressEmail,focus_mode:!!s.focusMode,content_source:s.contentSource??"both",content_level:s.contentLevel??"beginner",session_reminder_lead:s.sessionReminderLead??"10",time_zone:s.timeZone??"UTC",show_completed_paths:s.showCompletedPaths!==false,show_streak_publicly:s.showStreaks!==false,show_saved_items_publicly:!!s.showSavedResources},{onConflict:"user_id"});}
-async function hydrateSettings(userId:string){const{data}=await supabase.from("app_settings").select("*").eq("user_id",userId).maybeSingle();if(!data)return;let c:any={};try{c=JSON.parse(localStorage.getItem("starfix:appSettings")||"{}");}catch{}localStorage.setItem("starfix:appSettings",JSON.stringify({...c,autoplayNextVideo:data.autoplay_next_video,showSubtitles:data.show_subtitles,dailyReminderNotifications:data.daily_reminder_notifications,weeklyProgressEmail:data.weekly_progress_email,focusMode:data.focus_mode,contentSource:data.content_source,contentLevel:data.content_level,sessionReminderLead:data.session_reminder_lead,timeZone:data.time_zone,showCompletedPaths:data.show_completed_paths,showStreaks:data.show_streak_publicly,showSavedResources:data.show_saved_items_publicly}));}
-async function syncSaved(userId:string){const raw=localStorage.getItem("starfix:savedItems");if(!raw)return;let a:any[];try{a=JSON.parse(raw);}catch{return;}for(const x of a)await supabase.from("saved_items").upsert({user_id:userId,external_id:String(x.id),item_type:x.type||"Resource",title:x.title||"Saved item",description:x.desc||null,url:x.url||`starfix://${x.id}`,saved_at:x.savedAt||new Date().toISOString()},{onConflict:"user_id,external_id"});}
-async function hydrateSaved(userId:string){const{data}=await supabase.from("saved_items").select("id,external_id,item_type,title,description,url,saved_at").eq("user_id",userId).order("saved_at",{ascending:false});if(data)localStorage.setItem("starfix:savedItems",JSON.stringify(data.map((x:any)=>({id:x.external_id||x.id,type:x.item_type,title:x.title,desc:x.description||"",url:x.url,savedAt:x.saved_at}))));}
-async function syncWatch(userId:string){const raw=localStorage.getItem("starfix:watchQueue");if(!raw)return;let map:any;try{map=JSON.parse(raw);}catch{return;}const{data:paths}=await supabase.from("growth_paths").select("id,slug");const pm=new Map((paths??[]).map((p:any)=>[p.slug,p.id]));for(const x of Object.values(map) as any[]){const pid=pm.get(x.pathId);if(!pid)continue;await supabase.from("watch_queue").upsert({user_id:userId,external_id:String(x.id),path_id:pid,video_title:x.title,creator:x.creator,video_url:x.url,pct:Math.max(0,Math.min(100,Math.round(x.pct))),elapsed_min:Math.max(0,Math.round(x.elapsedMin)),total_min:Math.max(1,Math.round(x.totalMin)),last_watched_at:x.lastWatchedAt||new Date().toISOString()},{onConflict:"user_id,external_id"});}}
-async function hydrateWatch(userId:string){const{data:paths}=await supabase.from("growth_paths").select("id,slug,title");const pm=new Map((paths??[]).map((p:any)=>[p.id,p]));const{data}=await supabase.from("watch_queue").select("id,external_id,path_id,video_title,creator,video_url,pct,elapsed_min,total_min,last_watched_at").eq("user_id",userId).order("last_watched_at",{ascending:false});if(!data)return;const out:any={};for(const x of data){const p=pm.get(x.path_id);const id=x.external_id||x.id;out[id]={id,pathId:p?.slug||x.path_id,pathTitle:p?.title||"Growth Path",pathColor:"#D4AF37",title:x.video_title,creator:x.creator,url:x.video_url,thumbSeed:id,pct:x.pct,elapsedMin:x.elapsed_min,totalMin:x.total_min,lastWatchedAt:x.last_watched_at};}localStorage.setItem("starfix:watchQueue",JSON.stringify(out));}
-async function syncNotifications(userId:string){const raw=localStorage.getItem("starfix:notifications");if(!raw)return;let a:any[];try{a=JSON.parse(raw);}catch{return;}for(const x of a)await supabase.from("notifications").upsert({user_id:userId,external_id:String(x.id),type:x.type,title:x.title,message:x.message||null,read:!!x.dismissed,created_at:x.createdAt||new Date().toISOString()},{onConflict:"user_id,external_id"});}
-async function hydrateNotifications(userId:string){const{data}=await supabase.from("notifications").select("id,external_id,type,title,message,read,created_at").eq("user_id",userId).order("created_at",{ascending:false}).limit(40);if(data)localStorage.setItem("starfix:notifications",JSON.stringify(data.map((x:any)=>({id:x.external_id||x.id,type:x.type,title:x.title,message:x.message||"",createdAt:x.created_at,dismissed:!!x.read}))));}
-async function syncProgress(userId:string){const raw=localStorage.getItem("starfix:enrollments");if(!raw)return;let a:any;try{a=JSON.parse(raw);}catch{return;}const{data:paths}=await supabase.from("growth_paths").select("id,slug");const pm=new Map((paths??[]).map((p:any)=>[p.slug,p.id]));for(const e of Object.values(a) as any[]){const pid=pm.get(e.pathId);if(!pid)continue;await supabase.from("user_progress").upsert({user_id:userId,path_id:pid,overall_progress:e.completedAt?100:Math.max(0,Math.min(99,Number(e.weekIndex||0)*8)),started_at:e.startedAt,completed_at:e.completedAt,focus:e.focus||[],video_stage:e.videoStage||"start",streak:e.streak||0,xp:e.xp||0,last_active_date:(e.lastActiveAt||new Date().toISOString()).slice(0,10),current_challenge_text:e.challenge?.label||null,current_challenge_xp:0,current_challenge_done:!!e.challenge?.done},{onConflict:"user_id,path_id"});}}
-async function syncXp(userId:string){const raw=localStorage.getItem("starfix:xp");if(!raw)return;let s:any;try{s=JSON.parse(raw);}catch{return;}const rows=(s.log||[]).slice(0,200).map((x:any)=>({user_id:userId,external_id:String(x.id),amount:Number(x.amount)||0,reason:x.label||"XP event",source_type:"app",created_at:new Date(x.at||Date.now()).toISOString()}));if(rows.length)await supabase.from("xp_transactions").upsert(rows,{onConflict:"user_id,external_id"});}
-async function hydrateXp(userId:string){const{data}=await supabase.from("xp_transactions").select("external_id,amount,reason,created_at").eq("user_id",userId).order("created_at",{ascending:false}).limit(200);if(!data?.length)return;let s:any={};try{s=JSON.parse(localStorage.getItem("starfix:xp")||"{}");}catch{}s.totalXp=Math.max(0,data.reduce((n:number,x:any)=>n+Number(x.amount),0));s.pending=s.pending||[];s.settledByKey=s.settledByKey||{};s.consistencyStreak=s.consistencyStreak||0;s.lastConsistencyDate=s.lastConsistencyDate||"";s.log=data.map((x:any)=>({id:x.external_id,label:x.reason,amount:Number(x.amount),at:new Date(x.created_at).getTime()}));localStorage.setItem("starfix:xp",JSON.stringify(s));}
-async function hydrateAll(userId:string){await Promise.all([hydrateSettings(userId),hydrateSaved(userId),hydrateWatch(userId),hydrateNotifications(userId),hydrateXp(userId),hydrateBookings(userId),hydrateMessages(userId)]);}
-async function syncAll(userId:string){if(syncing)return;syncing=true;try{await Promise.all([syncSettings(userId),syncSaved(userId),syncWatch(userId),syncNotifications(userId),syncProgress(userId),syncXp(userId)]);}finally{syncing=false;}}
-export async function initializeBackendSync(){if(typeof window==="undefined")return;const uid=await currentUserId();if(!uid||startedForUser===uid)return;startedForUser=uid;await syncAll(uid);await hydrateAll(uid);const onChange=()=>{void currentUserId().then((id)=>id&&syncAll(id));};EVENTS.forEach((e)=>window.addEventListener(e,onChange));supabase.auth.onAuthStateChange((_event,session)=>{if(session?.user)void hydrateAll(session.user.id);});}
+async function currentUserId(): Promise<string | null> {
+  const { data } = await supabase.auth.getUser();
+  return data.user?.id ?? null;
+}
+
+export async function hydrateAll(userId: string): Promise<void> {
+  try {
+    await Promise.allSettled([
+      syncEnrollmentsFromDb(),
+      hydrateBookings(userId),
+      hydrateMessages(userId),
+      hydrateSavedItems(userId),
+      hydrateWatchQueue(userId),
+      hydrateNotifications(userId),
+      hydrateXp(userId),
+    ]);
+  } catch (err) {
+    console.warn("Error hydrating user data:", err);
+  }
+}
+
+export function clearAllUserData(): void {
+  startedForUser = null;
+  clearEnrollments();
+  clearBookings();
+  clearConversations();
+  clearSavedItems();
+  clearWatchQueue();
+  clearNotifications();
+  clearXp();
+}
+
+async function syncProgress(userId: string) {
+  const raw = typeof window !== "undefined" ? localStorage.getItem("starfix:enrollments") : null;
+  if (!raw) return;
+  let map: Record<string, any> = {};
+  try {
+    map = JSON.parse(raw);
+  } catch {
+    return;
+  }
+  for (const e of Object.values(map)) {
+    await saveEnrollmentToDb(userId, e).catch(() => {});
+  }
+}
+
+async function syncAll(userId: string) {
+  if (syncing) return;
+  syncing = true;
+  try {
+    await syncProgress(userId);
+  } catch (err) {
+    console.warn("Background sync error:", err);
+  } finally {
+    syncing = false;
+  }
+}
+
+export async function initializeBackendSync() {
+  if (typeof window === "undefined") return;
+  const uid = await currentUserId();
+  if (!uid || startedForUser === uid) return;
+  startedForUser = uid;
+
+  // Hydrate all database data for this user first
+  await hydrateAll(uid);
+
+  // Then ensure any offline local progress is saved
+  await syncAll(uid);
+
+  const onChange = () => {
+    void currentUserId().then((id) => id && syncAll(id));
+  };
+
+  window.addEventListener("starfix:enrollments-changed", onChange);
+
+  supabase.auth.onAuthStateChange((event, session) => {
+    if (session?.user) {
+      if (startedForUser !== session.user.id) {
+        startedForUser = session.user.id;
+        void hydrateAll(session.user.id);
+      }
+    } else if (event === "SIGNED_OUT") {
+      clearAllUserData();
+    }
+  });
+}
+

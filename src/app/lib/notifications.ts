@@ -6,6 +6,9 @@
    can re-read state without prop drilling.
 ───────────────────────────────────────────────────────────────────────── */
 
+import { supabase } from "./supabase";
+import { fetchNotificationsFromDb, insertNotificationToDb, markNotificationReadInDb } from "./supabaseDb";
+
 export const NOTIFICATIONS_CHANGED_EVENT = "starfix:notifications-changed";
 const STORAGE_KEY = "starfix:notifications";
 const MAX_STORED = 40;
@@ -111,6 +114,14 @@ export function addNotification(
     pathId,
   };
   writeAll([notif, ...all]);
+
+  // Asynchronously persist to Supabase
+  supabase.auth.getSession().then(({ data: { session } }) => {
+    if (session?.user) {
+      void insertNotificationToDb(session.user.id, notif);
+    }
+  });
+
   return notif;
 }
 
@@ -120,9 +131,51 @@ export function dismissNotification(id: string) {
   if (!n) return;
   n.dismissed = true;
   writeAll(all);
+
+  supabase.auth.getSession().then(({ data: { session } }) => {
+    if (session?.user) {
+      void markNotificationReadInDb(id);
+    }
+  });
 }
 
 export function dismissAll() {
   const all = readAll().map((n) => ({ ...n, dismissed: true }));
   writeAll(all);
+
+  supabase.auth.getSession().then(({ data: { session } }) => {
+    if (session?.user) {
+      all.forEach((n) => void markNotificationReadInDb(n.id));
+    }
+  });
+}
+
+export async function hydrateNotifications(userId?: string): Promise<AppNotification[]> {
+  try {
+    let uid = userId;
+    if (!uid) {
+      const { data } = await supabase.auth.getUser();
+      uid = data.user?.id;
+    }
+    if (!uid) return getAllNotifications();
+
+    const remote = await fetchNotificationsFromDb(uid);
+    if (remote && Array.isArray(remote) && remote.length > 0) {
+      const existing = readAll();
+      const existingIds = new Set(existing.map((e) => e.id));
+      const combined = [...remote, ...existing.filter((e) => !existingIds.has(e.id))];
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(combined.slice(0, MAX_STORED)));
+        window.dispatchEvent(new Event(NOTIFICATIONS_CHANGED_EVENT));
+      }
+      return combined;
+    }
+  } catch (err) {
+    console.warn("Could not hydrate notifications from Supabase:", err);
+  }
+  return getAllNotifications();
+}
+
+export function clearNotifications(): void {
+  writeAll([]);
 }

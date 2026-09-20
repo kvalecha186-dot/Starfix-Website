@@ -371,3 +371,7 @@ export const QUICK_CHIPS = [
   { label: "Give me next steps", text: "What should my next steps be to keep making progress on my path?" },
   { label: "Prepare for interview", text: "Can you help me prepare for an upcoming interview?" },
 ];
+
+export function clearConversations(): void {
+  writeAll({});
+}

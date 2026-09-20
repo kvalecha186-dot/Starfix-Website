@@ -26,7 +26,7 @@
 ───────────────────────────────────────────────────────────────────────── */
 
 import { supabase } from "./supabase";
-import { recordXpInDb } from "./supabaseDb";
+import { recordXpInDb, fetchUserXpFromDb } from "./supabaseDb";
 
 const KEY = "starfix:xp";
 export const XP_CHANGED_EVENT = "starfix:xp-changed";
@@ -368,4 +368,37 @@ export function uncelebrateTaskXp(key: string, amount: number, originEvent?: { c
   const x = originEvent?.clientX ?? window.innerWidth - 160;
   const y = originEvent?.clientY ?? window.innerHeight / 2;
   flyXp(-Math.abs(amount), x, y);
+}
+
+export async function hydrateXp(userId?: string): Promise<number> {
+  try {
+    let uid = userId;
+    if (!uid) {
+      const { data } = await supabase.auth.getUser();
+      uid = data.user?.id;
+    }
+    if (!uid) return getXpState().totalXp;
+
+    const res = await fetchUserXpFromDb(uid);
+    if (res && typeof res.totalXp === "number") {
+      const s = read();
+      s.totalXp = Math.max(s.totalXp, res.totalXp);
+      if (res.log && res.log.length > 0) {
+        const existingIds = new Set((s.log || []).map((l) => l.id));
+        const newEntries = res.log.filter((l) => !existingIds.has(l.id));
+        s.log = [...newEntries, ...(s.log || [])].slice(0, MAX_LOG);
+      }
+      write(s);
+      return s.totalXp;
+    }
+  } catch (err) {
+    console.warn("Could not hydrate XP from Supabase:", err);
+  }
+  return getXpState().totalXp;
+}
+
+export function clearXp(): void {
+  if (typeof window === "undefined") return;
+  window.localStorage.removeItem(KEY);
+  window.dispatchEvent(new Event(XP_CHANGED_EVENT));
 }

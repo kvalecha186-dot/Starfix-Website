@@ -152,3 +152,7 @@ export function updateBookingNotes(bookingId: string, notes: string) {
   if (index !== -1) { bookings[index].notes = notes; writeLocal(bookings); }
   void (async () => { const uid = await currentUserId(); if (!uid) return; await supabase.from("bookings").update({ notes }).eq("student_id", uid).or(`id.eq.${bookingId},external_id.eq.${bookingId}`); })();
 }
+
+export function clearBookings(): void {
+  writeLocal([]);
+}
