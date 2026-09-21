@@ -101,7 +101,7 @@ export function MentorOnboarding({ open, onClose, onComplete }: { open: boolean;
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: form.email.trim(),
         password: form.password,
-        options: { data: { full_name: form.name.trim() } },
+        options: {\n          data: {\n            full_name: form.name.trim(),\n            role: "mentor",\n            mentor_phone: form.phone.trim(),\n            mentor_location: form.location.trim(),\n            mentor_languages: form.languages,\n            mentor_headline: form.currentRole.trim(),\n            mentor_company: form.company.trim(),\n            mentor_years_experience: form.yearsExperience,\n            mentor_category: form.category,\n            mentor_skills: form.skills,\n            mentor_education: form.education.trim(),\n            mentor_linkedin_url: form.linkedinUrl.trim(),\n            mentor_bio: form.bio.trim(),\n            mentor_mentoring_approach: form.mentoringApproach.trim(),\n            mentor_offers_free_intro: form.offersFreeIntro,\n          },\n          emailRedirectTo: window.location.origin + "/auth/callback",\n        },
       });
       if (authError) throw authError;
 
