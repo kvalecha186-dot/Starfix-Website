@@ -3,19 +3,14 @@ import {
   Search,
   Send,
   CalendarPlus,
-  Check,
   CheckCheck,
-  Sparkles,
+  ArrowLeft,
   MessageCircle,
-  Clock,
-  ArrowRight,
-  MoreVertical,
 } from "lucide-react";
 import { M } from "../mentorColors";
 import { useViewport } from "../../lib/useViewport";
 import type { Mentee } from "../lib/mentorDataService";
 import { supabase } from "../../lib/supabase";
-import { toast } from "sonner";
 
 interface MessageItem {
   id: string;
@@ -47,11 +42,12 @@ export function MentorMessagesPage({
   openMenteeId,
   onOpenScheduleModal,
 }: Props) {
-  const { isMobile, isCompact } = useViewport();
+  const { isCompact } = useViewport();
   const [threads, setThreads] = useState<Record<string, Thread>>({});
   const [activeMenteeId, setActiveMenteeId] = useState<string>(
     openMenteeId || mentees[0]?.id || "mentee_1"
   );
+  const [mobileShowThread, setMobileShowThread] = useState(false);
   const [inputText, setInputText] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -140,6 +136,7 @@ export function MentorMessagesPage({
   useEffect(() => {
     if (openMenteeId && threads[openMenteeId]) {
       setActiveMenteeId(openMenteeId);
+      setMobileShowThread(true);
     }
   }, [openMenteeId, threads]);
 
@@ -184,7 +181,6 @@ export function MentorMessagesPage({
       try {
         const { data: user } = await supabase.auth.getUser();
         if (user.user) {
-          // If a conversation exists, insert into messages
           const { data: conv } = await supabase
             .from("conversations")
             .select("id")
@@ -218,46 +214,57 @@ export function MentorMessagesPage({
   );
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 14, flex: 1, minHeight: 0 }}>
       {/* ── Page Header ── */}
-      <div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+      <div style={{ flexShrink: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
           <span style={{ fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.08em", color: M.gold, fontWeight: 700 }}>
             Real-Time Communications
           </span>
         </div>
-        <h1 style={{ fontFamily: M.serif, fontSize: "1.85rem", fontWeight: 700, color: M.text, margin: 0 }}>
+        <h1 style={{ fontFamily: M.serif, fontSize: "1.75rem", fontWeight: 700, color: M.text, margin: 0 }}>
           Mentee Messages
         </h1>
       </div>
 
-      {/* ── Chat Container: Split Pane ── */}
+      {/* ── Chat Container: Resilient Flex Layout ── */}
       <div
         style={{
-          display: "grid",
-          gridTemplateColumns: isCompact ? "1fr" : "320px 1fr",
+          display: "flex",
+          flexDirection: isCompact ? "column" : "row",
           background: M.surface,
           border: `1px solid ${M.border}`,
           borderRadius: M.radiusLg,
           overflow: "hidden",
-          minHeight: 560,
-          maxHeight: "calc(100vh - 200px)",
+          minHeight: 540,
+          height: "calc(100vh - 200px)",
           boxShadow: M.shadowLg,
         }}
       >
-        {/* Left Pane: Conversation List (Hide on mobile if thread active and mobile) */}
+        {/* ══ Left Pane: Conversation List (Locked at 320px, never shrinks) ══ */}
         <div
           style={{
-            borderRight: `1px solid ${M.border}`,
+            width: isCompact ? "100%" : 320,
+            minWidth: isCompact ? "100%" : 320,
+            maxWidth: isCompact ? "100%" : 320,
+            flexShrink: 0,
+            borderRight: isCompact ? "none" : `1px solid ${M.border}`,
+            borderBottom: isCompact ? `1px solid ${M.border}` : "none",
             background: M.surfaceAlt,
-            display: "flex",
+            display: isCompact && mobileShowThread ? "none" : "flex",
             flexDirection: "column",
+            height: "100%",
+            overflow: "hidden",
           }}
         >
-          {/* Search */}
-          <div style={{ padding: "14px 16px", borderBottom: `1px solid ${M.border}` }}>
+          {/* Search Bar */}
+          <div style={{ padding: "14px 16px", borderBottom: `1px solid ${M.border}`, flexShrink: 0 }}>
             <div style={{ position: "relative" }}>
-              <Search size={15} color={M.textFaint} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)" }} />
+              <Search
+                size={15}
+                color={M.textFaint}
+                style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)" }}
+              />
               <input
                 type="text"
                 value={searchQuery}
@@ -266,12 +273,12 @@ export function MentorMessagesPage({
                 style={{
                   width: "100%",
                   boxSizing: "border-box",
-                  padding: "8px 12px 8px 34px",
+                  padding: "9px 12px 9px 36px",
                   borderRadius: M.radiusSm,
                   background: M.surface,
                   border: `1px solid ${M.borderSubtle}`,
                   color: M.text,
-                  fontSize: "0.82rem",
+                  fontSize: "0.84rem",
                   fontFamily: M.sans,
                   outline: "none",
                 }}
@@ -288,6 +295,7 @@ export function MentorMessagesPage({
                   key={thread.menteeId}
                   onClick={() => {
                     setActiveMenteeId(thread.menteeId);
+                    setMobileShowThread(true);
                     setThreads((prev) => ({
                       ...prev,
                       [thread.menteeId]: { ...prev[thread.menteeId], unreadCount: 0 },
@@ -304,20 +312,23 @@ export function MentorMessagesPage({
                     cursor: "pointer",
                     marginBottom: 4,
                     transition: "all 0.16s ease",
+                    boxSizing: "border-box",
+                    width: "100%",
                   }}
                 >
                   <div
                     style={{
-                      width: 40,
-                      height: 40,
+                      width: 42,
+                      height: 42,
                       borderRadius: "50%",
                       background: isSelected ? M.gold : "rgba(255,255,255,0.06)",
                       color: isSelected ? "#11101a" : M.gold,
+                      border: `1px solid ${isSelected ? M.gold : M.border}`,
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
                       fontWeight: 700,
-                      fontSize: "0.86rem",
+                      fontSize: "0.88rem",
                       flexShrink: 0,
                     }}
                   >
@@ -329,17 +340,34 @@ export function MentorMessagesPage({
                   </div>
 
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                      <span style={{ fontWeight: 600, fontSize: "0.88rem", color: M.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
+                      <span
+                        style={{
+                          fontWeight: 600,
+                          fontSize: "0.88rem",
+                          color: M.text,
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                        }}
+                      >
                         {thread.menteeName}
                       </span>
-                      <span style={{ fontSize: "0.7rem", color: M.textFaint }}>
+                      <span style={{ fontSize: "0.7rem", color: M.textFaint, flexShrink: 0 }}>
                         {thread.lastMessageAt}
                       </span>
                     </div>
 
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 3 }}>
-                      <span style={{ fontSize: "0.78rem", color: M.textMuted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 170 }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6, marginTop: 3 }}>
+                      <span
+                        style={{
+                          fontSize: "0.78rem",
+                          color: M.textMuted,
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                        }}
+                      >
                         {thread.lastMessage}
                       </span>
                       {thread.unreadCount > 0 && (
@@ -351,6 +379,7 @@ export function MentorMessagesPage({
                             fontWeight: 700,
                             borderRadius: 999,
                             padding: "1px 6px",
+                            flexShrink: 0,
                           }}
                         >
                           {thread.unreadCount}
@@ -364,8 +393,18 @@ export function MentorMessagesPage({
           </div>
         </div>
 
-        {/* Right Pane: Active Chat Thread */}
-        <div style={{ display: "flex", flexDirection: "column", background: M.surface }}>
+        {/* ══ Right Pane: Active Chat Thread (Takes all remaining width, flex: 1, minWidth: 0) ══ */}
+        <div
+          style={{
+            flex: 1,
+            minWidth: 0,
+            display: isCompact && !mobileShowThread ? "none" : "flex",
+            flexDirection: "column",
+            background: M.surface,
+            height: "100%",
+            overflow: "hidden",
+          }}
+        >
           {activeThread ? (
             <>
               {/* Thread Header */}
@@ -377,9 +416,27 @@ export function MentorMessagesPage({
                   alignItems: "center",
                   justifyContent: "space-between",
                   background: M.surfaceAlt,
+                  flexShrink: 0,
                 }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  {isCompact && (
+                    <button
+                      onClick={() => setMobileShowThread(false)}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        color: M.textMuted,
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        padding: 4,
+                      }}
+                    >
+                      <ArrowLeft size={18} />
+                    </button>
+                  )}
+
                   <div
                     style={{
                       width: 42,
@@ -392,6 +449,7 @@ export function MentorMessagesPage({
                       justifyContent: "center",
                       fontWeight: 700,
                       color: M.gold,
+                      flexShrink: 0,
                     }}
                   >
                     {activeThread.menteeName
@@ -418,15 +476,16 @@ export function MentorMessagesPage({
                       display: "inline-flex",
                       alignItems: "center",
                       gap: 6,
-                      padding: "7px 14px",
+                      padding: "8px 14px",
                       borderRadius: M.radiusSm,
-                      background: "rgba(212,175,55,0.10)",
+                      background: "rgba(212,175,55,0.12)",
                       border: `1px solid ${M.goldBorder}`,
                       color: M.gold,
-                      fontSize: "0.8rem",
+                      fontSize: "0.82rem",
                       fontWeight: 600,
                       cursor: "pointer",
                       fontFamily: M.sans,
+                      whiteSpace: "nowrap",
                     }}
                   >
                     <CalendarPlus size={14} /> Schedule 1:1
@@ -439,6 +498,7 @@ export function MentorMessagesPage({
                 style={{
                   flex: 1,
                   overflowY: "auto",
+                  minHeight: 0,
                   padding: "20px 22px",
                   display: "flex",
                   flexDirection: "column",
@@ -458,7 +518,7 @@ export function MentorMessagesPage({
                     >
                       <div
                         style={{
-                          maxWidth: "74%",
+                          maxWidth: "75%",
                           padding: "12px 16px",
                           borderRadius: isMentor ? "16px 16px 4px 16px" : "16px 16px 16px 4px",
                           background: isMentor ? "rgba(212,175,55,0.16)" : M.surfaceAlt,
@@ -467,6 +527,7 @@ export function MentorMessagesPage({
                           fontSize: "0.88rem",
                           lineHeight: 1.5,
                           boxShadow: M.shadow,
+                          wordBreak: "break-word",
                         }}
                       >
                         {msg.text}
@@ -487,22 +548,33 @@ export function MentorMessagesPage({
               </div>
 
               {/* Quick Reply Chips */}
-              <div style={{ padding: "8px 18px", display: "flex", gap: 8, overflowX: "auto", borderTop: `1px solid ${M.borderSubtle}` }}>
+              <div
+                style={{
+                  padding: "8px 16px",
+                  display: "flex",
+                  gap: 8,
+                  overflowX: "auto",
+                  borderTop: `1px solid ${M.borderSubtle}`,
+                  flexShrink: 0,
+                  maxWidth: "100%",
+                }}
+              >
                 {quickReplies.map((reply, i) => (
                   <button
                     key={i}
                     onClick={() => handleSendMessage(reply)}
                     style={{
                       whiteSpace: "nowrap",
-                      padding: "4px 10px",
+                      padding: "5px 12px",
                       borderRadius: M.radiusPill,
                       background: "rgba(255,255,255,0.03)",
                       border: `1px solid ${M.border}`,
                       color: M.textMuted,
-                      fontSize: "0.74rem",
+                      fontSize: "0.76rem",
                       cursor: "pointer",
                       fontFamily: M.sans,
                       transition: "all 0.16s ease",
+                      flexShrink: 0,
                     }}
                     onMouseEnter={(e) => {
                       e.currentTarget.style.borderColor = M.goldBorder;
@@ -519,7 +591,7 @@ export function MentorMessagesPage({
               </div>
 
               {/* Chat Input Box */}
-              <div style={{ padding: "14px 18px", borderTop: `1px solid ${M.border}`, display: "flex", gap: 10 }}>
+              <div style={{ padding: "14px 18px", borderTop: `1px solid ${M.border}`, display: "flex", gap: 10, flexShrink: 0 }}>
                 <input
                   type="text"
                   value={inputText}
@@ -533,6 +605,7 @@ export function MentorMessagesPage({
                   placeholder={`Write a message to ${activeThread.menteeName}…`}
                   style={{
                     flex: 1,
+                    minWidth: 0,
                     padding: "12px 16px",
                     borderRadius: M.radiusSm,
                     background: M.surfaceAlt,
@@ -559,6 +632,7 @@ export function MentorMessagesPage({
                     color: inputText.trim() ? "#11101a" : M.textFaint,
                     cursor: inputText.trim() ? "pointer" : "default",
                     transition: "all 0.16s ease",
+                    flexShrink: 0,
                   }}
                 >
                   <Send size={18} />
