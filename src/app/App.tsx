@@ -95,7 +95,6 @@ function AppShell() {
         const [profile, role] = await Promise.all([getProfile(session.user.id), fetchUserRole(session.user.id)]);
         if (!alive) return;
         setUserRole(role);
-        setUserRole(role);
         setUserProfile(profile || {
           ...DEFAULT_PROFILE,
           name: session.user.user_metadata?.full_name || session.user.email?.split("@")[0] || DEFAULT_PROFILE.name,
@@ -132,6 +131,7 @@ function AppShell() {
       void initializeBackendSync();
       void Promise.all([getProfile(session.user.id), fetchUserRole(session.user.id)]).then(([profile, role]) => {
         if (!alive) return;
+        setUserRole(role);
         setUserProfile(profile || {
           ...DEFAULT_PROFILE,
           name: session.user.user_metadata?.full_name || session.user.email?.split("@")[0] || DEFAULT_PROFILE.name,
