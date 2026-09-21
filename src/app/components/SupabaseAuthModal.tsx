@@ -81,8 +81,15 @@ export function SupabaseAuthModal({ mode, onClose, onSuccess, onSwitchMode }: Pr
         });
         if (authError) {
           if (authError.message.toLowerCase().includes("confirm") || authError.message.toLowerCase().includes("invalid")) {
-            const isMentorEmail = email.includes("kvalecha") || email.includes("mentor");
-            const role = isMentorEmail ? "mentor" : "student";
+            let role: "mentor" | "student" = "student";
+            if (localStorage.getItem("starfix:userRole") === "mentor" || email.toLowerCase().includes("kvalecha") || email.toLowerCase().includes("mentor")) {
+              role = "mentor";
+            } else {
+              try {
+                const { data: mentorData } = await supabase.from("mentors").select("id").eq("email", email.trim()).maybeSingle();
+                if (mentorData?.id) role = "mentor";
+              } catch {}
+            }
             const profile = {
               name: name.trim() || email.split("@")[0] || "Starfix User",
               email: email.trim(),

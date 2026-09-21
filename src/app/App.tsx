@@ -216,8 +216,10 @@ function AppShell() {
     await supabase.auth.signOut();
     localStorage.removeItem("userProfile");
     localStorage.removeItem("loggedIn");
+    localStorage.removeItem("starfix:userRole");
     clearAllUserData();
     setUserProfile(null);
+    setUserRole("student");
     setLoggedIn(false);
   }, []);
 

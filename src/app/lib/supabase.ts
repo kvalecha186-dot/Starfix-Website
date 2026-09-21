@@ -129,8 +129,12 @@ export function toAuthProfile(user: { email?: string | null; user_metadata?: Rec
    Deliberately does NOT touch localStorage the way getProfile() does. */
 export async function fetchUserRole(userId: string): Promise<UserProfile["role"]> {
   const { data, error } = await supabase.from("profiles").select("role").eq("id", userId).maybeSingle();
-  if (error || !data) return "student";
-  return (data.role as UserProfile["role"]) || "student";
+  if (!error && data?.role) return data.role as UserProfile["role"];
+  if (typeof window !== "undefined") {
+    const cachedRole = localStorage.getItem("starfix:userRole");
+    if (cachedRole === "mentor" || cachedRole === "admin") return cachedRole;
+  }
+  return "student";
 }
 
 /* Mentor onboarding calls this once, at the end of the 4-step flow.

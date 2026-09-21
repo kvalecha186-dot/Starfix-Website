@@ -98,33 +98,47 @@ export function MentorOnboarding({ open, onClose, onComplete }: { open: boolean;
     try {
       // 1. Real Supabase Auth account — same signUp call the student flow
       // uses, same "requires email confirmation" handling.
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: form.email.trim(),
-        password: form.password,
-        options: {
-          data: {
-            full_name: form.name.trim(),
-            role: "mentor",
-            mentor_phone: form.phone.trim(),
-            mentor_location: form.location.trim(),
-            mentor_languages: form.languages,
-            mentor_headline: form.currentRole.trim(),
-            mentor_company: form.company.trim(),
-            mentor_years_experience: form.yearsExperience,
-            mentor_category: form.category,
-            mentor_skills: form.skills,
-            mentor_education: form.education.trim(),
-            mentor_linkedin_url: form.linkedinUrl.trim(),
-            mentor_bio: form.bio.trim(),
-            mentor_mentoring_approach: form.mentoringApproach.trim(),
-            mentor_offers_free_intro: form.offersFreeIntro,
+      let userId = `mentor_${Date.now()}`;
+      try {
+        const { data: authData, error: authError } = await supabase.auth.signUp({
+          email: form.email.trim(),
+          password: form.password,
+          options: {
+            data: {
+              full_name: form.name.trim(),
+              role: "mentor",
+              mentor_phone: form.phone.trim(),
+              mentor_location: form.location.trim(),
+              mentor_languages: form.languages,
+              mentor_headline: form.currentRole.trim(),
+              mentor_company: form.company.trim(),
+              mentor_years_experience: form.yearsExperience,
+              mentor_category: form.category,
+              mentor_skills: form.skills,
+              mentor_education: form.education.trim(),
+              mentor_linkedin_url: form.linkedinUrl.trim(),
+              mentor_bio: form.bio.trim(),
+              mentor_mentoring_approach: form.mentoringApproach.trim(),
+              mentor_offers_free_intro: form.offersFreeIntro,
+            },
+            emailRedirectTo: window.location.origin + "/auth/callback",
           },
-          emailRedirectTo: window.location.origin + "/auth/callback",
-        },
-      });
-      if (authError) throw authError;
+        });
 
-      const userId = authData.session?.user?.id || authData.user?.id || `mentor_${Date.now()}`;
+        if (authError) {
+          const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+            email: form.email.trim(),
+            password: form.password,
+          });
+          if (!signInError && signInData?.user) {
+            userId = signInData.user.id;
+          }
+        } else if (authData?.user) {
+          userId = authData.user.id;
+        }
+      } catch (authErr) {
+        console.warn("Supabase auth signup notice:", authErr);
+      }
 
       // Save mentor authentication state so mentor is logged in immediately without email confirmation delay
       const mentorProfile = {
@@ -149,37 +163,42 @@ export function MentorOnboarding({ open, onClose, onComplete }: { open: boolean;
 
       // Attach this account to a mentor row in Supabase
       const skillsList = form.skills.split(",").map((s) => s.trim()).filter(Boolean);
-      await claimOrCreateMentorProfile(userId, {
-        name: form.name.trim(),
-        email: form.email.trim(),
-        phone: form.phone.trim() || undefined,
-        location: form.location.trim() || undefined,
-        languages: form.languages,
-        headline: form.currentRole.trim() || undefined,
-        company: form.company.trim() || undefined,
-        yearsExperience: form.yearsExperience ? Number(form.yearsExperience) : undefined,
-        category: form.category || undefined,
-        skills: skillsList,
-        education: form.education.trim() || undefined,
-        linkedinUrl: form.linkedinUrl.trim() || undefined,
-        bio: form.bio.trim() || undefined,
-        mentoringApproach: form.mentoringApproach.trim() || undefined,
-        offersFreeIntro: form.offersFreeIntro,
-      }).catch(() => {});
+      try {
+        await claimOrCreateMentorProfile(userId, {
+          name: form.name.trim(),
+          email: form.email.trim(),
+          phone: form.phone.trim() || undefined,
+          location: form.location.trim() || undefined,
+          languages: form.languages,
+          headline: form.currentRole.trim() || undefined,
+          company: form.company.trim() || undefined,
+          yearsExperience: form.yearsExperience ? Number(form.yearsExperience) : undefined,
+          category: form.category || undefined,
+          skills: skillsList,
+          education: form.education.trim() || undefined,
+          linkedinUrl: form.linkedinUrl.trim() || undefined,
+          bio: form.bio.trim() || undefined,
+          mentoringApproach: form.mentoringApproach.trim() || undefined,
+          offersFreeIntro: form.offersFreeIntro,
+        });
+      } catch (err) {
+        console.warn("claimOrCreateMentorProfile failed:", err);
+      }
 
-      await supabase.from("profiles").upsert({
-        id: userId,
-        role: "mentor",
-        full_name: form.name.trim(),
-        email: form.email.trim(),
-      }).catch(() => {});
+      try {
+        await supabase.from("profiles").upsert({
+          id: userId,
+          role: "mentor",
+          full_name: form.name.trim(),
+          email: form.email.trim(),
+        });
+      } catch (err) {
+        console.warn("upsert mentor profile failed:", err);
+      }
 
       setLoading(false);
       setDone(true);
       return;
-
-      setLoading(false);
-      setDone(true);
     } catch (e: any) {
       setError(e?.message || "Something went wrong. Please try again.");
       setLoading(false);
