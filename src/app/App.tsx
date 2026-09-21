@@ -244,7 +244,7 @@ function AppShell() {
       {splashDone && loggedIn && (
         <motion.div key="authenticated" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.45 }}>
           {userRole === "mentor" ? (
-            <MentorDashboard userProfile={userProfile} onLogout={handleLogout} />
+            <MentorDashboard userProfile={userProfile} onLogout={handleLogout} onUpdateProfile={handleUpdateProfile} />
           ) : (
             <DashboardLayout onLogout={handleLogout} userProfile={userProfile} onUpdateProfile={handleUpdateProfile} />
           )}
