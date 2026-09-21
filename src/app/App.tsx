@@ -107,6 +107,7 @@ function AppShell() {
           const raw = localStorage.getItem("userProfile");
           try {
             setUserProfile(raw ? JSON.parse(raw) : DEFAULT_PROFILE);
+            setUserRole((localStorage.getItem("starfix:userRole") as any) || "student");
             setLoggedIn(true);
           } catch {
             setUserProfile(null);

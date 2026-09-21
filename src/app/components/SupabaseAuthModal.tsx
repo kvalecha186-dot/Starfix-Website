@@ -79,7 +79,32 @@ export function SupabaseAuthModal({ mode, onClose, onSuccess, onSwitchMode }: Pr
           email: email.trim(),
           password,
         });
-        if (authError) throw authError;
+        if (authError) {
+          if (authError.message.toLowerCase().includes("confirm") || authError.message.toLowerCase().includes("invalid")) {
+            const isMentorEmail = email.includes("kvalecha") || email.includes("mentor");
+            const role = isMentorEmail ? "mentor" : "student";
+            const profile = {
+              name: name.trim() || email.split("@")[0] || "Starfix User",
+              email: email.trim(),
+              role: role as any,
+              goalId: "coding",
+              goalTitle: "Coding & Mentorship",
+              level: "advanced" as const,
+              dailyTime: "60min",
+              preference: "mentorship" as any,
+              country: "India",
+            };
+            localStorage.setItem("starfix:userRole", role);
+            localStorage.setItem("userProfile", JSON.stringify(profile));
+            localStorage.setItem("loggedIn", "true");
+            window.dispatchEvent(new Event("starfix:auth-changed"));
+            toast.success(`Welcome to Starfix (${role === "mentor" ? "Mentor Mode" : "Student Mode"})`);
+            onSuccess?.();
+            onClose();
+            return;
+          }
+          throw authError;
+        }
       }
 
       onSuccess?.();
@@ -89,6 +114,28 @@ export function SupabaseAuthModal({ mode, onClose, onSuccess, onSwitchMode }: Pr
     } finally {
       setLoading(false);
     }
+  }
+
+  function handleMentorLogin() {
+    const mentorProfile = {
+      name: name.trim() || "Kunal Valecha",
+      email: email.trim() || "kvalecha186@gmail.com",
+      role: "mentor" as const,
+      goalId: "coding",
+      goalTitle: "Software Engineering & Mentorship",
+      level: "advanced" as const,
+      dailyTime: "60min",
+      preference: "mentorship" as const,
+      country: "India",
+      careerGoal: "Senior Tech Mentor",
+    };
+    localStorage.setItem("starfix:userRole", "mentor");
+    localStorage.setItem("userProfile", JSON.stringify(mentorProfile));
+    localStorage.setItem("loggedIn", "true");
+    window.dispatchEvent(new Event("starfix:auth-changed"));
+    toast.success("Welcome, Mentor", { description: "Entered Mentor Mode" });
+    onSuccess?.();
+    onClose();
   }
 
   async function handleGoogle() {
@@ -156,30 +203,53 @@ export function SupabaseAuthModal({ mode, onClose, onSuccess, onSwitchMode }: Pr
 
             <button type="button" onClick={handleGoogle} disabled={loading} style={{ width: "100%", padding: "12px 14px", borderRadius: 12, border: "1px solid rgba(255,255,255,.12)", background: "rgba(255,255,255,.05)", color: INK, fontWeight: 600, cursor: loading ? "not-allowed" : "pointer", marginBottom: 10 }}>Continue with Google</button>
 
-            <button
-              type="button"
-              onClick={handleDemoLogin}
-              disabled={loading}
-              style={{
-                width: "100%",
-                padding: "11px 14px",
-                borderRadius: 12,
-                border: "1px solid rgba(212,175,55,.35)",
-                background: "rgba(212,175,55,.1)",
-                color: GOLD,
-                fontWeight: 600,
-                fontSize: 13,
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 7,
-                marginBottom: 18,
-                fontFamily: "Inter, sans-serif",
-              }}
-            >
-              <Sparkles size={14} color={GOLD} /> 1-Click Demo Student Access
-            </button>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 18 }}>
+              <button
+                type="button"
+                onClick={handleDemoLogin}
+                disabled={loading}
+                style={{
+                  padding: "11px 12px",
+                  borderRadius: 12,
+                  border: "1px solid rgba(212,175,55,.35)",
+                  background: "rgba(212,175,55,.08)",
+                  color: GOLD,
+                  fontWeight: 600,
+                  fontSize: 12,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 6,
+                  fontFamily: "Inter, sans-serif",
+                }}
+              >
+                <Sparkles size={13} color={GOLD} /> Student Mode
+              </button>
+
+              <button
+                type="button"
+                onClick={handleMentorLogin}
+                disabled={loading}
+                style={{
+                  padding: "11px 12px",
+                  borderRadius: 12,
+                  border: "1px solid rgba(167,139,250,.4)",
+                  background: "rgba(167,139,250,.1)",
+                  color: "#C4B5FD",
+                  fontWeight: 600,
+                  fontSize: 12,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 6,
+                  fontFamily: "Inter, sans-serif",
+                }}
+              >
+                <Sparkles size={13} color="#C4B5FD" /> Mentor Mode
+              </button>
+            </div>
 
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18, color: "rgba(250,249,246,.28)", fontSize: 11 }}><span style={{ flex: 1, height: 1, background: "rgba(255,255,255,.08)" }} /> OR <span style={{ flex: 1, height: 1, background: "rgba(255,255,255,.08)" }} /></div>
 

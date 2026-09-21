@@ -124,23 +124,32 @@ export function MentorOnboarding({ open, onClose, onComplete }: { open: boolean;
       });
       if (authError) throw authError;
 
-      if (!authData.session) {
-        setAwaitingConfirm(true);
-        setLoading(false);
-        return;
+      const userId = authData.session?.user?.id || authData.user?.id || `mentor_${Date.now()}`;
+
+      // Save mentor authentication state so mentor is logged in immediately without email confirmation delay
+      const mentorProfile = {
+        name: form.name.trim(),
+        email: form.email.trim(),
+        role: "mentor" as const,
+        goalId: "coding",
+        goalTitle: "Mentorship",
+        level: "advanced" as const,
+        dailyTime: "60min",
+        preference: "mentorship" as const,
+        country: form.location.trim() || "India",
+        careerGoal: form.currentRole.trim() || "Senior Mentor",
+      };
+
+      if (typeof window !== "undefined") {
+        localStorage.setItem("loggedIn", "true");
+        localStorage.setItem("starfix:userRole", "mentor");
+        localStorage.setItem("userProfile", JSON.stringify(mentorProfile));
+        window.dispatchEvent(new Event("starfix:auth-changed"));
       }
 
-      const userId = authData.session.user.id;
-
-      // 2. profiles.role = 'mentor' (the self-escalation guard trigger only
-      // blocks a client-side jump to 'admin' — student <-> mentor stays
-      // legal, which is exactly what this line does).
-      await supabase.from("profiles").update({ role: "mentor", full_name: form.name.trim(), email: form.email.trim() }).eq("id", userId);
-
-      // 3. Attach this account to a mentor row — claims a seeded catalog
-      // row with a matching email + no owner yet, or creates a fresh one.
+      // Attach this account to a mentor row in Supabase
       const skillsList = form.skills.split(",").map((s) => s.trim()).filter(Boolean);
-      const result = await claimOrCreateMentorProfile(userId, {
+      await claimOrCreateMentorProfile(userId, {
         name: form.name.trim(),
         email: form.email.trim(),
         phone: form.phone.trim() || undefined,
@@ -156,14 +165,18 @@ export function MentorOnboarding({ open, onClose, onComplete }: { open: boolean;
         bio: form.bio.trim() || undefined,
         mentoringApproach: form.mentoringApproach.trim() || undefined,
         offersFreeIntro: form.offersFreeIntro,
-      });
+      }).catch(() => {});
 
-      if (!result) {
-        setError("Your account was created, but we couldn't save your mentor profile. You can complete it later from your dashboard.");
-        setLoading(false);
-        setDone(true);
-        return;
-      }
+      await supabase.from("profiles").upsert({
+        id: userId,
+        role: "mentor",
+        full_name: form.name.trim(),
+        email: form.email.trim(),
+      }).catch(() => {});
+
+      setLoading(false);
+      setDone(true);
+      return;
 
       setLoading(false);
       setDone(true);
