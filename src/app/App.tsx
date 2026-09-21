@@ -27,10 +27,11 @@ import { PricingSection } from "./components/PricingSection";
 import { CTASection } from "./components/CTASection";
 import { Footer } from "./components/Footer";
 import { DashboardLayout } from "./dashboard/DashboardLayout";
+import { MentorDashboard } from "./mentor/MentorDashboard";
 import { AdminLayout } from "./admin/AdminLayout";
 import type { UserProfile } from "./types";
 import { GOAL_META } from "./types";
-import { getProfile, supabase, upsertProfile } from "./lib/supabase";
+import { fetchUserRole, getProfile, supabase, upsertProfile } from "./lib/supabase";
 import { initializeBackendSync, clearAllUserData } from "./lib/backendSync";
 
 function RedirectToOverview() {
@@ -80,6 +81,7 @@ function AppShell() {
   const [loggedIn, setLoggedIn] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [userRole, setUserRole] = useState<UserProfile["role"]>("student");
 
   useEffect(() => {
     let alive = true;
@@ -90,8 +92,10 @@ function AppShell() {
       const session = data.session;
       setLoggedIn(!!session);
       if (session?.user) {
-        const profile = await getProfile(session.user.id);
+        const [profile, role] = await Promise.all([getProfile(session.user.id), fetchUserRole(session.user.id)]);
         if (!alive) return;
+        setUserRole(role);
+        setUserRole(role);
         setUserProfile(profile || {
           ...DEFAULT_PROFILE,
           name: session.user.user_metadata?.full_name || session.user.email?.split("@")[0] || DEFAULT_PROFILE.name,
@@ -126,7 +130,7 @@ function AppShell() {
         return;
       }
       void initializeBackendSync();
-      void getProfile(session.user.id).then((profile) => {
+      void Promise.all([getProfile(session.user.id), fetchUserRole(session.user.id)]).then(([profile, role]) => {
         if (!alive) return;
         setUserProfile(profile || {
           ...DEFAULT_PROFILE,
@@ -235,8 +239,12 @@ function AppShell() {
       {!splashDone && <SplashScreen onComplete={handleComplete} />}
 
       {splashDone && loggedIn && (
-        <motion.div key="dashboard" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.45 }}>
-          <DashboardLayout onLogout={handleLogout} userProfile={userProfile} onUpdateProfile={handleUpdateProfile} />
+        <motion.div key="authenticated" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.45 }}>
+          {userRole === "mentor" ? (
+            <MentorDashboard userProfile={userProfile} onLogout={handleLogout} />
+          ) : (
+            <DashboardLayout onLogout={handleLogout} userProfile={userProfile} onUpdateProfile={handleUpdateProfile} />
+          )}
         </motion.div>
       )}
 
