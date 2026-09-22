@@ -16,7 +16,7 @@ import { MENTOR_DETAILS } from "../mentorData";
 import { MENTOR_EXTRA, CATEGORY_CONFIG } from "../mentorExtra";
 import { getAllEnrollments, ENROLLMENTS_CHANGED_EVENT } from "../../lib/pathProgress";
 import { PATHS } from "./GoalsPage";
-import { createBooking, isSessionBooked, BOOKINGS_CHANGED_EVENT, getBookingHistory } from "../../lib/bookings";
+import { createBooking, isSessionBooked, BOOKINGS_CHANGED_EVENT, getBookingHistory, hydrateBookings } from "../../lib/bookings";
 import { CheckoutModal } from "../CheckoutModal";
 import { submitMentorReview } from "../../lib/supabaseDb";
 import { supabase } from "../../lib/supabase";
@@ -131,13 +131,15 @@ export function MentorDetailPage({
 
 
   useEffect(() => {
-    const completed = getBookingHistory().find((b) => b.mentorId === mentorId && b.status === "Completed");
-    if (!completed) return;
-    setReviewBookingId(completed.id);
     void (async () => {
       const auth = await supabase.auth.getUser();
-      if (!auth.data.user) return;
-      const existing = (await supabase.from("reviews").select("id").eq("booking_id", completed.id).eq("student_id", auth.data.user.id).maybeSingle()).data;
+      if (auth.data.user) await hydrateBookings(auth.data.user.id);
+      const completed = getBookingHistory().find((b) => b.mentorId === mentorId && b.status === "Completed");
+      if (!completed) return;
+      setReviewBookingId(completed.id);
+      const authAgain = await supabase.auth.getUser();
+      if (!authAgain.data.user) return;
+      const existing = (await supabase.from("reviews").select("id").eq("booking_id", completed.id).eq("student_id", authAgain.data.user.id).maybeSingle()).data;
       setReviewSubmitted(!!existing);
     })();
   }, [mentorId]);
