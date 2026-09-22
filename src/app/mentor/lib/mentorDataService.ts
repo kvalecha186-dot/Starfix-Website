@@ -463,6 +463,8 @@ export interface MentorChatThread {
 }
 
 export async function fetchMentorConversations(mentorId: string): Promise<MentorChatThread[]> {
+  const mentorProfile = (await supabase.from("mentors").select("profile_id").eq("id", mentorId).maybeSingle()).data;
+  const mentorProfileId = mentorProfile?.profile_id;
   const { data: conversations } = await supabase
     .from("conversations")
     .select("id,student_id,created_at")
@@ -480,7 +482,7 @@ export async function fetchMentorConversations(mentorId: string): Promise<Mentor
   return conversations.map((c: any) => {
     const p = pm.get(c.student_id);
     const ms = messages.filter((m: any) => m.conversation_id === c.id).map((m: any) => ({
-      id: String(m.id), senderId: String(m.sender), sender: String(m.sender) === mentorId ? "mentor" : "student", text: m.body || "", sentAt: m.created_at, status: m.status
+      id: String(m.id), senderId: String(m.sender), sender: String(m.sender) === String(mentorProfileId) ? "mentor" : "student", text: m.body || "", sentAt: m.created_at, status: m.status
     }));
     return { conversationId: String(c.id), studentId: c.student_id, studentName: p?.full_name || p?.email?.split("@")[0] || "Student", studentEmail: p?.email, careerGoal: p?.career_goal, messages: ms, unreadCount: ms.filter((m: any) => m.sender === "student" && m.status !== "seen").length };
   });
