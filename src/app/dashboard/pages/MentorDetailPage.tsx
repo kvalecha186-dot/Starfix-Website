@@ -208,6 +208,16 @@ export function MentorDetailPage({
 
   const config = CATEGORY_CONFIG[mentor.category] ?? CATEGORY_CONFIG["Coding"];
   const similar = MENTORS.filter((m) => m.category === mentor.category && m.id !== mentor.id).slice(0, 3);
+  const checkoutAvailability = dbAvailability.length
+    ? Object.values(dbAvailability.reduce((acc: Record<string, { date: string; slots: string[] }>, slot: any) => {
+        const d = new Date(slot.start_at);
+        const date = d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+        const time = d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+        acc[date] ||= { date, slots: [] };
+        if (slot.status === "available") acc[date].slots.push(time);
+        return acc;
+      }, {}))
+    : detail.availability;
 
   // Review distribution — computed from the actual review ratings.
   const dist = [5, 4, 3, 2, 1].map((star) => detail.reviews.filter((r) => r.rating === star).length);
@@ -708,7 +718,7 @@ export function MentorDetailPage({
         onClose={() => setShowCheckout(false)}
         mentor={mentor}
         session={currentSess}
-        availability={detail.availability}
+        availability={checkoutAvailability}
         onMessageMentor={onMessageMentor}
         onSuccessBooking={() => {
           forceBookingsTick((n) => n + 1);
