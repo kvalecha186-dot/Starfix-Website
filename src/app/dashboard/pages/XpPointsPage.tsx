@@ -22,15 +22,18 @@ import { WhyXpButton, WhyXpModal } from "../WhyXpModal";
 ───────────────────────────────────────────────────────────────────────── */
 
 const X = {
-  bg: "#FAF8F3",
-  border: "#E8D7A5",
-  borderSoft: "rgba(212,165,20,0.14)",
-  gold: "#D4A514",
-  goldLight: "#FBF3DE",
-  text: "#1C1917",
-  textMuted: "#6B6355",
-  textFaint: "#A69C87",
-  shadow: "0 10px 32px rgba(180,140,20,0.07)",
+  bg: "#050510",
+  surface: "#0C0B18",
+  surfaceMuted: "#141324",
+  border: "rgba(212,175,55,0.22)",
+  borderSoft: "rgba(212,175,55,0.12)",
+  borderFaint: "rgba(255,255,255,0.08)",
+  gold: "#D4AF37",
+  goldLight: "rgba(212,175,55,0.10)",
+  text: "#FAF9F6",
+  textMuted: "rgba(250,249,246,0.65)",
+  textFaint: "rgba(250,249,246,0.40)",
+  shadow: "0 12px 40px rgba(0,0,0,0.55)",
   radius: 28,
 };
 
@@ -42,7 +45,7 @@ const LABEL: React.CSSProperties = {
 function Card({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
   return (
     <div style={{
-      background: "#fff", border: `1px solid ${X.border}`, borderRadius: X.radius,
+      background: X.surface, border: `1px solid ${X.border}`, borderRadius: X.radius,
       boxShadow: X.shadow, ...style,
     }}>
       {children}
@@ -195,7 +198,7 @@ export function XpPointsPage({ onNavigate }: { onNavigate?: (p: DashPage) => voi
                 <span>{xpState.totalXp.toLocaleString()} / {rank.next ? rank.next.min.toLocaleString() : xpState.totalXp.toLocaleString()} XP {rank.next ? `to ${rank.next.name}` : "— top rank"}</span>
                 {rank.next && <span style={{ fontWeight: 600, color: X.text }}>{remainingToNext.toLocaleString()} XP remaining</span>}
               </div>
-              <div style={{ height: 3, borderRadius: 999, background: "#F1EADC", overflow: "hidden" }}>
+              <div style={{ height: 3, borderRadius: 999, background: X.surfaceMuted, overflow: "hidden" }}>
                 <motion.div
                   animate={{ width: `${rank.progressPct}%` }}
                   transition={{ duration: 0.6, ease: "easeOut" }}
@@ -234,7 +237,7 @@ export function XpPointsPage({ onNavigate }: { onNavigate?: (p: DashPage) => voi
                 }}>
                   <span style={{
                     fontSize: "0.78rem", fontWeight: 700, color: p.amount >= 0 ? X.gold : X.textMuted,
-                    background: p.amount >= 0 ? X.goldLight : "#F4F1E8", border: `1px solid ${p.amount >= 0 ? X.border : "#E5E0D3"}`,
+                    background: p.amount >= 0 ? X.goldLight : X.surfaceMuted, border: `1px solid ${p.amount >= 0 ? X.border : X.borderFaint}`,
                     padding: "3px 10px", borderRadius: 999, flexShrink: 0, minWidth: 56, textAlign: "center",
                   }}>
                     {p.amount >= 0 ? "+" : ""}{p.amount}
@@ -303,13 +306,13 @@ export function XpPointsPage({ onNavigate }: { onNavigate?: (p: DashPage) => voi
                 return (
                   <div key={u.title} style={{
                     padding: "16px 14px", borderRadius: 18,
-                    background: unlocked ? X.goldLight : "#FAF9F5",
-                    border: `1px solid ${unlocked ? X.border : "#EDE8DA"}`,
+                    background: unlocked ? X.goldLight : X.surfaceMuted,
+                    border: `1px solid ${unlocked ? X.border : X.borderFaint}`,
                   }}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
                       <div style={{
                         width: 30, height: 30, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center",
-                        background: unlocked ? "#fff" : "#F1EADC",
+                        background: unlocked ? X.surface : X.surfaceMuted,
                       }}>
                         <u.Icon size={14} color={unlocked ? X.gold : X.textFaint} />
                       </div>

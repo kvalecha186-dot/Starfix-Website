@@ -202,7 +202,7 @@ function PrivacyGroupCard({
   title, icon: Icon, note, children,
 }: { title: string; icon: React.ComponentType<{ size?: number; color?: string }>; note?: string; children: React.ReactNode }) {
   return (
-    <div style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 24, padding: 32, boxSizing: "border-box", overflow: "visible", width: "100%" }}>
+    <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 24, padding: 32, boxSizing: "border-box", overflow: "visible", width: "100%" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 22 }}>
         <div style={{ width: 32, height: 32, borderRadius: 10, background: C.goldLight, border: `1px solid ${C.goldBorder}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
           <Icon size={14} color={C.gold} />
@@ -300,15 +300,15 @@ function CountrySelect({ value, onChange, isMobile }: { value: string; onChange:
       onClick={() => { onChange(c.name); setOpen(false); }}
       style={{
         width: "100%", display: "flex", alignItems: "center", gap: 10,
-        padding: "12px 16px", background: isSelected ? "#FFF4D6" : "transparent",
+        padding: "12px 16px", background: isSelected ? C.goldLight : "transparent",
         border: "none", cursor: "pointer", fontFamily: "'Inter', sans-serif",
         transition: "background 120ms ease",
       }}
-      onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.background = "#FFF7E1"; }}
+      onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.background = C.surfaceHover; }}
       onMouseLeave={(e) => { if (!isSelected) e.currentTarget.style.background = "transparent"; }}
     >
       <Flag code={c.code} size={18} />
-      <span style={{ flex: 1, textAlign: "left", fontSize: "0.83rem", fontWeight: 500, color: isSelected ? "#1A1A1A" : C.text }}>
+      <span style={{ flex: 1, textAlign: "left", fontSize: "0.83rem", fontWeight: 500, color: isSelected ? C.gold : C.text }}>
         {c.name}
       </span>
       {isSelected && <Check size={14} color={C.gold} strokeWidth={2.5} style={{ flexShrink: 0 }} />}
@@ -321,7 +321,7 @@ function CountrySelect({ value, onChange, isMobile }: { value: string; onChange:
         onClick={() => setOpen((o) => !o)}
         style={{
           width: "100%", height: 40, boxSizing: "border-box", display: "flex", alignItems: "center", justifyContent: "space-between",
-          background: C.surfaceAlt, border: `1px solid ${open ? C.gold : "rgba(0,0,0,0.08)"}`, borderRadius: 12,
+          background: C.surfaceAlt, border: `1px solid ${open ? C.gold : C.border}`, borderRadius: 12,
           padding: "0 14px", cursor: "pointer", fontFamily: "'Inter', sans-serif",
           boxShadow: open ? `0 0 0 3px ${C.goldBorder}` : "none", transition: "border-color 140ms ease, box-shadow 140ms ease",
         }}
@@ -348,7 +348,7 @@ function CountrySelect({ value, onChange, isMobile }: { value: string; onChange:
               transition={{ duration: 0.14, ease: [0.22, 1, 0.36, 1] }}
               style={{
                 position: "absolute", top: "calc(100% + 8px)", left: 0, width: "100%", zIndex: 50,
-                background: "#fff", borderRadius: 16, boxShadow: "0 12px 32px rgba(0,0,0,0.12)",
+                background: C.surface, borderRadius: 16, boxShadow: "0 12px 32px rgba(0,0,0,0.45)",
                 border: `1px solid ${C.borderMuted}`, padding: "8px 0",
                 maxHeight: 280, overflowY: "auto",
               }}
@@ -373,8 +373,8 @@ function CountrySelect({ value, onChange, isMobile }: { value: string; onChange:
                 className="starfix-sheet-enter"
                 style={{
                   position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 96,
-                  background: "#fff", borderTopLeftRadius: 22, borderTopRightRadius: 22,
-                  boxShadow: "0 -12px 32px rgba(0,0,0,0.14)", maxHeight: "70vh",
+                  background: C.surface, borderTopLeftRadius: 22, borderTopRightRadius: 22,
+                  boxShadow: "0 -12px 32px rgba(0,0,0,0.4)", maxHeight: "70vh",
                   display: "flex", flexDirection: "column", overflow: "hidden",
                 }}
               >
@@ -465,15 +465,15 @@ function LanguagePicker({ value, onChange }: { value: string[]; onChange: (v: st
             <motion.button
               key={l.code}
               onClick={() => toggle(l.code)}
-              whileHover={{ boxShadow: active ? `0 0 0 4px ${C.goldBorder}` : `0 0 0 3px rgba(0,0,0,0.04)` }}
+              whileHover={{ boxShadow: active ? `0 0 0 4px ${C.goldBorder}` : `0 0 0 3px ${C.surfaceHover}` }}
               whileTap={{ scale: 0.97 }}
               style={{
                 display: "flex", alignItems: "center", gap: 8, height: 40, boxSizing: "border-box",
                 padding: "0 14px", borderRadius: 999, cursor: "pointer",
                 fontSize: "0.82rem", fontWeight: 500, fontFamily: "'Inter', sans-serif",
-                background: active ? "#FFF7E1" : "#fff",
-                border: `1px solid ${active ? C.gold : "rgba(0,0,0,0.08)"}`,
-                color: active ? "#7A5C00" : C.text,
+                background: active ? C.goldLight : C.surfaceAlt,
+                border: `1px solid ${active ? C.gold : C.border}`,
+                color: active ? C.gold : C.text,
                 transition: "background 140ms ease, border-color 140ms ease",
               }}
             >

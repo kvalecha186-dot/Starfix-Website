@@ -424,7 +424,7 @@ export function DashboardHome({ onNavigate, userProfile }: { onNavigate?: (p: Da
   const sessionEnrollment = enrollments.find((e) => e.mentorId != null) ?? null;
 
   return (
-    <div style={{ background: "#FFFFFF", minHeight: "100vh", position: "relative", overflow: "hidden" }}>
+    <div style={{ background: C.bg, minHeight: "100vh", position: "relative", overflow: "hidden" }}>
 
       <XpFlyLayer />
 

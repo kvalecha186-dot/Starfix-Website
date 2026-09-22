@@ -169,21 +169,21 @@ function Card({ children, style }: { children: React.ReactNode; style?: React.CS
    top of the shared dashColors tokens, so it reads as a deliberate
    "identity moment" rather than just another dashboard Card. */
 const ID = {
-  bg: "#FFFCF3",
-  gold: "#C9A227",
-  text: "#171717",
-  border: "#ECE7DF",
+  bg: "#0C0B18",
+  gold: "#D4AF37",
+  text: "#FAF9F6",
+  border: "rgba(255,255,255,0.08)",
 };
 
 const inputStyle: React.CSSProperties = {
   width: "100%", padding: "11px 14px", borderRadius: 12,
-  border: `1px solid ${ID.border}`, background: "#fff", color: ID.text,
+  border: `1px solid ${ID.border}`, background: "#141324", color: ID.text,
   fontSize: "0.86rem", fontFamily: "'Inter', sans-serif", boxSizing: "border-box",
 };
 
 const ghostBtnStyle: React.CSSProperties = {
   display: "flex", alignItems: "center", gap: 7, padding: "9px 14px", borderRadius: 10,
-  border: `1px solid ${ID.border}`, background: "#fff", color: ID.text,
+  border: `1px solid ${ID.border}`, background: "#141324", color: ID.text,
   fontSize: "0.78rem", fontWeight: 600, fontFamily: "'Inter', sans-serif", cursor: "pointer",
 };
 
@@ -207,9 +207,9 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
       aria-pressed={checked}
       style={{
         width: 42, height: 25, borderRadius: 999, border: "none", cursor: "pointer",
-        background: checked ? ID.gold : "#E4DFD3", position: "relative", flexShrink: 0, padding: 0,
+        background: checked ? ID.gold : "rgba(255,255,255,0.14)", position: "relative", flexShrink: 0, padding: 0,
       }}
-      animate={{ backgroundColor: checked ? ID.gold : "#E4DFD3" }}
+      animate={{ backgroundColor: checked ? ID.gold : "rgba(255,255,255,0.14)" }}
       transition={{ duration: 0.2 }}
     >
       <motion.span
@@ -242,7 +242,7 @@ function ChipMultiSelect({ options, selected, onToggle }: { options: string[]; s
             style={{
               padding: "8px 16px", borderRadius: 999, cursor: "pointer",
               border: `1px solid ${active ? ID.gold : ID.border}`,
-              background: active ? `${ID.gold}14` : "#fff",
+              background: active ? `${ID.gold}14` : "#141324",
               color: active ? ID.gold : C.textMuted,
               fontSize: "0.8rem", fontWeight: 600, fontFamily: "'Inter', sans-serif",
             }}
@@ -270,7 +270,7 @@ function PillSelect({ options, value, onChange }: { options: string[]; value: st
             style={{
               padding: "8px 16px", borderRadius: 999, cursor: "pointer",
               border: `1px solid ${active ? ID.gold : ID.border}`,
-              background: active ? ID.gold : "#fff",
+              background: active ? ID.gold : "#141324",
               color: active ? "#fff" : C.textMuted,
               fontSize: "0.8rem", fontWeight: 600, fontFamily: "'Inter', sans-serif",
               transition: "background 160ms ease, color 160ms ease, border-color 160ms ease",
@@ -427,7 +427,7 @@ function ProfileHero({ profile, activeAreasCount, weeklyHours, onEditClick }: { 
       <motion.button
         className="icon-button"
         onClick={onEditClick}
-        whileHover={{ backgroundColor: "#fff", borderColor: ID.gold, color: ID.gold }}
+        whileHover={{ backgroundColor: "#1A1830", borderColor: ID.gold, color: ID.gold }}
         transition={{ duration: 0.18 }}
         style={{
           display: "flex", alignItems: "center", justifyContent: "center",
@@ -489,8 +489,8 @@ function EditProfileModal({
             transition={{ duration: 0.22, ease: "easeOut" }}
             style={{
               width: "100%", maxWidth: 560, maxHeight: "88vh", overflowY: "auto",
-              background: "#fff", borderRadius: 24, border: `1px solid ${ID.border}`,
-              boxShadow: "0 30px 70px -20px rgba(23,23,23,0.28)", position: "relative",
+              background: ID.bg, borderRadius: 24, border: `1px solid ${ID.border}`,
+              boxShadow: "0 30px 70px -20px rgba(0,0,0,0.55)", position: "relative",
             }}
           >
             <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: ID.gold, borderTopLeftRadius: 24, borderTopRightRadius: 24 }} />
@@ -560,14 +560,14 @@ function EditProfileModal({
 
             <div style={{
               position: "sticky", bottom: 0, display: "flex", gap: 12, justifyContent: "flex-end",
-              padding: "16px 32px", borderTop: `1px solid ${ID.border}`, background: "#fff",
+              padding: "16px 32px", borderTop: `1px solid ${ID.border}`, background: ID.bg,
               borderBottomLeftRadius: 24, borderBottomRightRadius: 24,
             }}>
               <motion.button
                 type="button" whileTap={{ scale: 0.97 }} onClick={onClose}
                 style={{
                   padding: "11px 22px", borderRadius: C.radiusSm, border: `1px solid ${ID.border}`,
-                  background: "#fff", color: C.textMuted, fontSize: "0.84rem", fontWeight: 600,
+                  background: "#141324", color: C.textMuted, fontSize: "0.84rem", fontWeight: 600,
                   cursor: "pointer", fontFamily: "'Inter', sans-serif",
                 }}
               >
@@ -607,8 +607,8 @@ function SuccessToast({ show }: { show: boolean }) {
           style={{
             position: "fixed", bottom: 32, left: "50%", transform: "translateX(-50%)",
             display: "flex", alignItems: "center", gap: 10,
-            background: "#fff", border: `1px solid ${ID.gold}55`, borderRadius: 999,
-            padding: "12px 22px", boxShadow: `0 12px 30px -10px ${ID.gold}50, 0 2px 8px rgba(23,23,23,0.08)`,
+            background: ID.bg, border: `1px solid ${ID.gold}55`, borderRadius: 999,
+            padding: "12px 22px", boxShadow: `0 12px 30px -10px ${ID.gold}50, 0 2px 8px rgba(0,0,0,0.4)`,
             zIndex: 200, fontFamily: "'Inter', sans-serif",
           }}
         >
@@ -746,9 +746,9 @@ function GrowthJourneyCard() {
                 const pct = prev ? Math.round(((p.h - prev.h) / prev.h) * 100) : null;
                 return (
                   <div style={{
-                    background: "#fff", border: `1px solid ${ID.border}`, borderRadius: 10,
+                    background: ID.bg, border: `1px solid ${ID.border}`, borderRadius: 10,
                     padding: "8px 12px", fontSize: "0.74rem", fontFamily: "'Inter', sans-serif",
-                    color: ID.text, boxShadow: "0 6px 18px -6px rgba(23,23,23,0.18)",
+                    color: ID.text, boxShadow: "0 6px 18px -6px rgba(0,0,0,0.5)",
                   }}>
                     <div style={{ fontWeight: 700 }}>
                       {p.full} <span style={{ color: C.textMuted, fontWeight: 500 }}>·</span> {p.h.toFixed(1)} hrs
