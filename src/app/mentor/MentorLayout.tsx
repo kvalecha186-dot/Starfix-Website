@@ -549,6 +549,7 @@ export function MentorLayout({ userProfile, onLogout, onUpdateProfile }: Props) 
 
               {currentTab === "messages" && (
                 <MentorMessagesPage
+                  mentorId={mentorObj.id}
                   mentees={mentees}
                   openMenteeId={openMenteeMessageId}
                   onOpenScheduleModal={handleScheduleWithMentee}
