@@ -1,4 +1,5 @@
 import { motion } from "motion/react";
+import { useEffect, useState } from "react";
 import {
   Users, Video, Target, TrendingUp, TrendingDown, Flame,
   UserCheck, UserPlus, CheckCircle2, BookOpenCheck, Flag, ArrowRight,
@@ -6,6 +7,7 @@ import {
 import { A } from "../adminColors";
 import { OVERVIEW_METRICS, NEEDS_ATTENTION, RECENT_ACTIVITY } from "../adminData";
 import type { AdminPage } from "../AdminLayout";
+import { supabase } from "../../lib/supabase";
 
 const METRIC_ICONS = [Users, Video, Target, TrendingUp];
 const ATTENTION_ICON: Record<string, any> = { "low-completion": TrendingDown, trending: TrendingUp, demand: Flame };
@@ -40,6 +42,31 @@ function MetricCard({ label, value, trend, Icon }: { label: string; value: strin
 }
 
 export function AdminOverview({ onNavigate }: { onNavigate?: (p: AdminPage) => void }) {
+  const [metrics, setMetrics] = useState(OVERVIEW_METRICS);
+  const [activity, setActivity] = useState(RECENT_ACTIVITY);
+
+  useEffect(() => {
+    void (async () => {
+      const [students, mentors, sessions, paths] = await Promise.all([
+        supabase.from("profiles").select("id", { count: "exact", head: true }).eq("role", "student"),
+        supabase.from("mentors").select("id", { count: "exact", head: true }),
+        supabase.from("bookings").select("id", { count: "exact", head: true }),
+        supabase.from("growth_paths").select("id", { count: "exact", head: true }),
+      ]);
+      setMetrics([
+        { label: "Learners", value: String(students.count ?? 0), trend: "Live Supabase count" },
+        { label: "Mentors", value: String(mentors.count ?? 0), trend: "Live Supabase count" },
+        { label: "Sessions", value: String(sessions.count ?? 0), trend: "All bookings" },
+        { label: "Growth Paths", value: String(paths.count ?? 0), trend: "Published paths" },
+      ]);
+      const recent = (await supabase.from("bookings").select("session_type,created_at,status").order("created_at", { ascending: false }).limit(5)).data || [];
+      if (recent.length) setActivity(recent.map((b: any) => ({
+        text: (b.status === "completed" ? "Session completed" : "Session booked") + " · " + (b.session_type || "Mentorship session"),
+        time: new Date(b.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+      })));
+    })();
+  }, []);
+
   return (
     <div style={{ padding: "36px 40px 60px", maxWidth: 1180, margin: "0 auto" }}>
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }} style={{ marginBottom: 30 }}>
@@ -51,7 +78,7 @@ export function AdminOverview({ onNavigate }: { onNavigate?: (p: AdminPage) => v
 
       {/* Metrics */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 18, marginBottom: 36 }}>
-        {OVERVIEW_METRICS.map((m, i) => (
+        {metrics.map((m, i) => (
           <MetricCard key={m.label} label={m.label} value={m.value} trend={m.trend} Icon={METRIC_ICONS[i]} />
         ))}
       </div>
