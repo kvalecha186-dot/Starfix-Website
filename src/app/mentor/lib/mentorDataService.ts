@@ -6,7 +6,6 @@ export interface MentorProfileData {
   legacyId?: number;
   name: string;
   email: string;
-  avatarUrl?: string;
   headline: string;
   company: string;
   category: string;
@@ -15,59 +14,12 @@ export interface MentorProfileData {
   totalReviews: number;
   skills: string[];
   bio: string;
-  mentoringApproach?: string;
-  mentoringStyle?: string[];
-  sessionTypes?: string[];
-  targetLevel?: string;
-  areasCanHelp?: string[];
-  languages?: string[];
-  location?: string;
   availability: string;
   acceptingMentees: boolean;
   offersFreeIntro: boolean;
   price: string;
   sessionDuration: string;
   linkedinUrl?: string;
-  mentorSince?: string;
-}
-
-export interface MenteeMilestone {
-  id: string;
-  title: string;
-  completed: boolean;
-  current?: boolean;
-}
-
-export interface MenteeGoal {
-  id: string;
-  title: string;
-  completed: boolean;
-  targetDate?: string;
-}
-
-export interface MenteeFeedback {
-  id: string;
-  date: string;
-  content: string;
-  focus: string;
-  rating?: number;
-}
-
-export interface MenteeResource {
-  id: string;
-  title: string;
-  type: "video" | "doc" | "project" | "article";
-  url: string;
-  channelOrAuthor?: string;
-  addedAt: string;
-}
-
-export interface MenteeTimelineEvent {
-  id: string;
-  date: string;
-  title: string;
-  description: string;
-  type: "session" | "milestone" | "note" | "feedback";
 }
 
 export interface Mentee {
@@ -77,24 +29,12 @@ export interface Mentee {
   avatarUrl?: string;
   careerGoal?: string;
   learningLanguage?: string;
-  pathTitle: string;
-  pathId: string;
-  progressPercent: number;
-  currentMilestone: string;
-  nextMilestone: string;
-  allMilestones: MenteeMilestone[];
-  goals: MenteeGoal[];
   totalSessions: number;
   totalHours: number;
   nextSessionDate?: string;
   lastActive?: string;
   status: "Active" | "Completed" | "Pending";
-  needsAttention?: boolean;
-  attentionReason?: string;
   notes?: string;
-  feedbackHistory: MenteeFeedback[];
-  recommendedResources: MenteeResource[];
-  timeline: MenteeTimelineEvent[];
 }
 
 export interface MentorSession {
@@ -111,32 +51,7 @@ export interface MentorSession {
   status: "Booked" | "Completed" | "Cancelled";
   meetingUrl?: string;
   notes?: string;
-  prepNotes?: string;
-  discussionRecap?: string;
-  actionItems?: string[];
-  needsFollowup?: boolean;
   createdAt: string;
-}
-
-export interface MentorshipRequest {
-  id: string;
-  menteeName: string;
-  menteeEmail: string;
-  avatarUrl?: string;
-  targetGoal: string;
-  message: string;
-  preferredTimes: string[];
-  receivedAt: string;
-  status: "Pending" | "Accepted" | "Declined";
-}
-
-export interface ActivityFeedItem {
-  id: string;
-  menteeName: string;
-  type: "milestone_completed" | "project_submitted" | "session_booked" | "review_left" | "question_asked";
-  title: string;
-  detail: string;
-  timeAgo: string;
 }
 
 export interface MentorReview {
@@ -165,131 +80,7 @@ export interface MentorEarnings {
   }[];
 }
 
-export interface WeeklyScheduleDay {
-  day: "Monday" | "Tuesday" | "Wednesday" | "Thursday" | "Friday" | "Saturday" | "Sunday";
-  enabled: boolean;
-  startTime: string;
-  endTime: string;
-}
-
-export interface BlockedDate {
-  id: string;
-  date: string;
-  reason: string;
-}
-
-/* ─── Local Storage Keys ─────────────────────────────────────────────────── */
-
 const STORAGE_NOTES_KEY = "starfix:mentor_notes";
-const STORAGE_SCHEDULE_KEY = "starfix:mentor_schedule";
-const STORAGE_BLOCKED_DATES_KEY = "starfix:mentor_blocked_dates";
-const STORAGE_REQUESTS_KEY = "starfix:mentor_requests";
-const STORAGE_EXTRA_MENTEES_KEY = "starfix:mentor_mentees_extra";
-const STORAGE_SESSIONS_KEY = "starfix:mentor_sessions_extra";
-const STORAGE_PROFILE_EXTRAS_KEY = "starfix:mentor_profile_extras";
-const STORAGE_MENTOR_SINCE_KEY = "starfix:mentor_since";
-
-/* ─── Mentor-specific profile fields not (yet) columns in the `mentors`
-   table — mentoring style, session types, target level, "areas I can
-   help with". Persisted locally so editing them is fully functional and
-   durable across refreshes without risking a write against a DB column
-   that may not exist. Merged onto MentorProfileData on every load. ──── */
-
-export interface MentorProfileExtras {
-  mentoringStyle: string[];
-  sessionTypes: string[];
-  targetLevel: string;
-  areasCanHelp: string[];
-}
-
-const DEFAULT_PROFILE_EXTRAS: MentorProfileExtras = {
-  mentoringStyle: [],
-  sessionTypes: [],
-  targetLevel: "",
-  areasCanHelp: [],
-};
-
-export function getStoredProfileExtras(): MentorProfileExtras {
-  if (typeof window === "undefined") return DEFAULT_PROFILE_EXTRAS;
-  try {
-    const raw = localStorage.getItem(STORAGE_PROFILE_EXTRAS_KEY);
-    return raw ? { ...DEFAULT_PROFILE_EXTRAS, ...JSON.parse(raw) } : DEFAULT_PROFILE_EXTRAS;
-  } catch {
-    return DEFAULT_PROFILE_EXTRAS;
-  }
-}
-
-export function saveProfileExtras(extras: Partial<MentorProfileExtras>): void {
-  if (typeof window === "undefined") return;
-  try {
-    const merged = { ...getStoredProfileExtras(), ...extras };
-    localStorage.setItem(STORAGE_PROFILE_EXTRAS_KEY, JSON.stringify(merged));
-  } catch {}
-}
-
-/* "Mentoring Since" — genuinely derived from the first time this browser
-   ever loaded Mentor Mode, not an invented number. Set once, read forever
-   after. If a real backend column (mentor_since / created_at) is ever
-   present on the mentors row, that value wins instead — see
-   fetchMentorData, which merges DB data over this local fallback. */
-export function getOrInitMentorSince(): string {
-  if (typeof window === "undefined") return new Date().toISOString();
-  try {
-    const existing = localStorage.getItem(STORAGE_MENTOR_SINCE_KEY);
-    if (existing) return existing;
-    const now = new Date().toISOString();
-    localStorage.setItem(STORAGE_MENTOR_SINCE_KEY, now);
-    return now;
-  } catch {
-    return new Date().toISOString();
-  }
-}
-
-/* ─── Mentees Local Persistence ─────────────────────────────────────────── */
-
-export function getStoredMentees(): Mentee[] {
-  if (typeof window === "undefined") return SAMPLE_MENTEES;
-  try {
-    const raw = localStorage.getItem(STORAGE_EXTRA_MENTEES_KEY);
-    if (!raw) return SAMPLE_MENTEES;
-    const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-    return SAMPLE_MENTEES;
-  } catch {
-    return SAMPLE_MENTEES;
-  }
-}
-
-export function saveStoredMentees(mentees: Mentee[]): void {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem(STORAGE_EXTRA_MENTEES_KEY, JSON.stringify(mentees));
-  } catch {}
-}
-
-/* ─── Sessions Local Persistence ─────────────────────────────────────────── */
-
-export function getStoredSessions(): MentorSession[] {
-  if (typeof window === "undefined") return SAMPLE_SESSIONS;
-  try {
-    const raw = localStorage.getItem(STORAGE_SESSIONS_KEY);
-    if (!raw) return SAMPLE_SESSIONS;
-    const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-    return SAMPLE_SESSIONS;
-  } catch {
-    return SAMPLE_SESSIONS;
-  }
-}
-
-export function saveStoredSessions(sessions: MentorSession[]): void {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem(STORAGE_SESSIONS_KEY, JSON.stringify(sessions));
-  } catch {}
-}
-
-/* ─── Private Notes Storage ─────────────────────────────────────────────── */
 
 function getStoredNotes(): Record<string, string> {
   if (typeof window === "undefined") return {};
@@ -306,94 +97,35 @@ export function saveMenteeNotes(menteeId: string, notes: string): void {
     const existing = getStoredNotes();
     existing[menteeId] = notes;
     localStorage.setItem(STORAGE_NOTES_KEY, JSON.stringify(existing));
-  } catch {}
+  } catch {
+    /* ignore */
+  }
 }
 
 export function getMenteeNotes(menteeId: string): string {
   return getStoredNotes()[menteeId] || "";
 }
 
-/* ─── Weekly Schedule & Blocked Dates ─────────────────────────────────────── */
-
-export const DEFAULT_WEEKLY_SCHEDULE: WeeklyScheduleDay[] = [
-  { day: "Monday", enabled: true, startTime: "10:00 AM", endTime: "6:00 PM" },
-  { day: "Tuesday", enabled: true, startTime: "10:00 AM", endTime: "6:00 PM" },
-  { day: "Wednesday", enabled: true, startTime: "10:00 AM", endTime: "6:00 PM" },
-  { day: "Thursday", enabled: true, startTime: "10:00 AM", endTime: "6:00 PM" },
-  { day: "Friday", enabled: true, startTime: "10:00 AM", endTime: "4:00 PM" },
-  { day: "Saturday", enabled: true, startTime: "11:00 AM", endTime: "3:00 PM" },
-  { day: "Sunday", enabled: false, startTime: "11:00 AM", endTime: "2:00 PM" },
-];
-
-export function getStoredWeeklySchedule(): WeeklyScheduleDay[] {
-  if (typeof window === "undefined") return DEFAULT_WEEKLY_SCHEDULE;
-  try {
-    const raw = localStorage.getItem(STORAGE_SCHEDULE_KEY);
-    return raw ? JSON.parse(raw) : DEFAULT_WEEKLY_SCHEDULE;
-  } catch {
-    return DEFAULT_WEEKLY_SCHEDULE;
-  }
-}
-
-export function saveWeeklySchedule(schedule: WeeklyScheduleDay[]): void {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem(STORAGE_SCHEDULE_KEY, JSON.stringify(schedule));
-  } catch {}
-}
-
-export const DEFAULT_BLOCKED_DATES: BlockedDate[] = [
-  { id: "b1", date: "2026-10-02", reason: "National Holiday" },
-  { id: "b2", date: "2026-10-18", reason: "Attending Tech Summit" },
-];
-
-export function getStoredBlockedDates(): BlockedDate[] {
-  if (typeof window === "undefined") return DEFAULT_BLOCKED_DATES;
-  try {
-    const raw = localStorage.getItem(STORAGE_BLOCKED_DATES_KEY);
-    return raw ? JSON.parse(raw) : DEFAULT_BLOCKED_DATES;
-  } catch {
-    return DEFAULT_BLOCKED_DATES;
-  }
-}
-
-export function saveBlockedDates(dates: BlockedDate[]): void {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem(STORAGE_BLOCKED_DATES_KEY, JSON.stringify(dates));
-  } catch {}
-}
-
-/* ─── Default Sample Data ─────────────────────────────────────────────────── */
+/* ─── Default Sample Data for Fresh Mentors ─────────────────────────────── */
 
 export function getDefaultMentorData(userProfile?: UserProfile | null): MentorProfileData {
-  const extras = getStoredProfileExtras();
   return {
     id: "mentor_current",
     name: userProfile?.name || "Kunal Valecha",
     email: userProfile?.email || "mentor@starfix.com",
-    avatarUrl: userProfile?.avatarDataUrl || undefined,
     headline: userProfile?.careerGoal || "Senior Software Engineer & Tech Mentor",
     company: "Starfix Partner",
     category: "Coding",
     yearsExperience: 8,
     rating: 5.0,
     totalReviews: 24,
-    skills: ["System Design", "Distributed Systems", "TypeScript", "React", "Cloud Architecture"],
-    bio: "Passionate about mentoring high-potential engineers through complex distributed system design, high-scale API architecture, and senior career placement.",
-    mentoringApproach: "I focus on first-principles system thinking, pragmatic code reviews, and structured mock interviews with actionable written feedback.",
-    mentoringStyle: extras.mentoringStyle,
-    sessionTypes: extras.sessionTypes,
-    targetLevel: extras.targetLevel,
-    areasCanHelp: extras.areasCanHelp,
-    languages: ["English", "Hindi"],
-    location: "Bangalore, India",
+    skills: ["System Design", "React", "TypeScript", "Node.js", "Cloud Architecture"],
+    bio: "Passionate about mentoring high-potential software engineers and guiding them through complex system design and career progression.",
     availability: "Available",
     acceptingMentees: true,
     offersFreeIntro: true,
     price: "₹2,500",
     sessionDuration: "45 min",
-    mentorSince: getOrInitMentorSince(),
   };
 }
 
@@ -404,70 +136,12 @@ export const SAMPLE_MENTEES: Mentee[] = [
     email: "aarav.s@gmail.com",
     careerGoal: "Senior Full-Stack Developer",
     learningLanguage: "TypeScript & React",
-    pathTitle: "Full-Stack Software Architecture",
-    pathId: "coding",
-    progressPercent: 68,
-    currentMilestone: "Module 3: Microservice APIs & Schema Design",
-    nextMilestone: "Module 4: Distributed Caching & Sharding",
-    allMilestones: [
-      { id: "m1", title: "Module 1: Advanced TypeScript & Design Patterns", completed: true },
-      { id: "m2", title: "Module 2: Relational DB Modeling & Query Tuning", completed: true },
-      { id: "m3", title: "Module 3: Microservice APIs & Schema Design", completed: false, current: true },
-      { id: "m4", title: "Module 4: Distributed Caching & Sharding", completed: false },
-      { id: "m5", title: "Module 5: End-to-End System Design Mock", completed: false },
-    ],
-    goals: [
-      { id: "g1", title: "Complete GraphQL Federation Schema", completed: true, targetDate: "Sep 15" },
-      { id: "g2", title: "Implement Redis Cache Layer with Write-Through Pattern", completed: false, targetDate: "Sep 26" },
-      { id: "g3", title: "Mock Interview: Design a Scalable Notification System", completed: false, targetDate: "Oct 5" },
-    ],
     totalSessions: 4,
     totalHours: 3.5,
     nextSessionDate: "Tomorrow, 5:00 PM",
-    lastActive: "2 hours ago",
+    lastActive: "Today",
     status: "Active",
-    needsAttention: true,
-    attentionReason: "Submitted API schema for review before tomorrow's call",
-    notes: "Strong frontend intuition. Needs extra focus on database indexing and connection pool sizing.",
-    feedbackHistory: [
-      {
-        id: "fb_1",
-        date: "Sep 12, 2026",
-        content: "Excellent implementation of the optimistic UI updates in React. Remember to handle edge network timeouts gracefully.",
-        focus: "Frontend Architecture",
-        rating: 5,
-      },
-      {
-        id: "fb_2",
-        date: "Aug 28, 2026",
-        content: "Good progress on SQL normalization. Next step is understanding B-tree vs Hash index tradeoffs.",
-        focus: "Database Design",
-        rating: 4,
-      },
-    ],
-    recommendedResources: [
-      {
-        id: "res_1",
-        title: "Structuring Scalable APIs & Microservices",
-        type: "video",
-        url: "https://www.youtube.com/watch?v=api_scale",
-        channelOrAuthor: "Hitesh Choudhary",
-        addedAt: "Sep 10, 2026",
-      },
-      {
-        id: "res_2",
-        title: "Designing Data-Intensive Applications (DDIA Summary)",
-        type: "doc",
-        url: "https://starfix.app/resources/ddia-summary",
-        channelOrAuthor: "Martin Kleppmann",
-        addedAt: "Aug 20, 2026",
-      },
-    ],
-    timeline: [
-      { id: "t1", date: "Sep 18", title: "Milestone 2 Completed", description: "Successfully finished DB Query Tuning project.", type: "milestone" },
-      { id: "t2", date: "Sep 12", title: "1:1 Architecture Session", description: "Discussed REST vs GraphQL federation.", type: "session" },
-      { id: "t3", date: "Aug 28", title: "Roadmap Alignment", description: "Established Q4 goal of reaching Senior Full-Stack role.", type: "note" },
-    ],
+    notes: "Focusing on micro-frontend architecture and clean state management patterns.",
   },
   {
     id: "mentee_2",
@@ -475,52 +149,12 @@ export const SAMPLE_MENTEES: Mentee[] = [
     email: "priya.p@outlook.com",
     careerGoal: "AI & Machine Learning Engineer",
     learningLanguage: "Python & PyTorch",
-    pathTitle: "AI & Machine Learning Engineering",
-    pathId: "ai-ml",
-    progressPercent: 52,
-    currentMilestone: "Module 3: Deep Neural Networks & Fine-Tuning",
-    nextMilestone: "Module 4: Model Quantization & TensorRT",
-    allMilestones: [
-      { id: "m1", title: "Module 1: Linear Algebra & Calculus for ML", completed: true },
-      { id: "m2", title: "Module 2: Classical Machine Learning with Scikit", completed: true },
-      { id: "m3", title: "Module 3: Deep Neural Networks & Fine-Tuning", completed: false, current: true },
-      { id: "m4", title: "Module 4: Model Quantization & TensorRT", completed: false },
-      { id: "m5", title: "Module 5: Production LLM Deployment", completed: false },
-    ],
-    goals: [
-      { id: "g1", title: "Implement Multi-Head Attention from scratch", completed: true, targetDate: "Sep 10" },
-      { id: "g2", title: "Fine-tune Llama 3 8B with QLoRA on custom dataset", completed: false, targetDate: "Sep 28" },
-    ],
     totalSessions: 3,
     totalHours: 2.5,
     nextSessionDate: "Thursday, 6:30 PM",
     lastActive: "Yesterday",
     status: "Active",
-    needsAttention: false,
-    notes: "Mathematical foundations are solid. Needs hands-on production deployment experience with Triton inference server.",
-    feedbackHistory: [
-      {
-        id: "fb_3",
-        date: "Sep 5, 2026",
-        content: "Clear understanding of attention mechanisms. Keep code clean and modular for the training pipeline.",
-        focus: "PyTorch & Transformers",
-        rating: 5,
-      },
-    ],
-    recommendedResources: [
-      {
-        id: "res_3",
-        title: "Deploying PyTorch Models with Docker & FastApi",
-        type: "video",
-        url: "https://www.youtube.com/watch?v=pytorch_deploy",
-        channelOrAuthor: "Andrew Ng",
-        addedAt: "Sep 2, 2026",
-      },
-    ],
-    timeline: [
-      { id: "t4", date: "Sep 14", title: "Completed Transformer Lab", description: "Built attention layer in PyTorch.", type: "milestone" },
-      { id: "t5", date: "Sep 5", title: "1:1 PyTorch Session", description: "Debugged loss plateau issue in gradient descent.", type: "session" },
-    ],
+    notes: "Working on model quantization and deploying LLM inference endpoints.",
   },
   {
     id: "mentee_3",
@@ -528,43 +162,12 @@ export const SAMPLE_MENTEES: Mentee[] = [
     email: "rohan.v@tech.io",
     careerGoal: "Cloud Architect",
     learningLanguage: "Docker & Kubernetes",
-    pathTitle: "Cloud & DevOps Architecture",
-    pathId: "cloud",
-    progressPercent: 100,
-    currentMilestone: "Module 5: Multi-Region Kubernetes Failover",
-    nextMilestone: "Course Completed 🎉",
-    allMilestones: [
-      { id: "m1", title: "Module 1: Linux CLI & Containerization", completed: true },
-      { id: "m2", title: "Module 2: CI/CD Pipelines & GitHub Actions", completed: true },
-      { id: "m3", title: "Module 3: Terraform & Infrastructure as Code", completed: true },
-      { id: "m4", title: "Module 4: Kubernetes Cluster Management", completed: true },
-      { id: "m5", title: "Module 5: Multi-Region Kubernetes Failover", completed: true },
-    ],
-    goals: [
-      { id: "g1", title: "Achieve CKA (Certified Kubernetes Admin)", completed: true, targetDate: "Sep 1" },
-      { id: "g2", title: "Pass Senior Cloud Architect Interview", completed: true, targetDate: "Sep 15" },
-    ],
     totalSessions: 6,
     totalHours: 5.0,
     nextSessionDate: undefined,
     lastActive: "3 days ago",
     status: "Completed",
-    needsAttention: false,
-    notes: "Successfully cracked Senior Cloud role offer with 40% salary hike. High recommendation.",
-    feedbackHistory: [
-      {
-        id: "fb_4",
-        date: "Sep 8, 2026",
-        content: "Outstanding performance during the mock incident management drill. Ready for senior responsibility.",
-        focus: "SRE & Resilience",
-        rating: 5,
-      },
-    ],
-    recommendedResources: [],
-    timeline: [
-      { id: "t6", date: "Sep 15", title: "Offer Accepted 🎉", description: "Accepted offer at leading global fintech.", type: "milestone" },
-      { id: "t7", date: "Sep 8", title: "Final Mock Interview", description: "Simulated high-load incident triage.", type: "session" },
-    ],
+    notes: "Successfully cracked Senior SRE interview at top product company.",
   },
   {
     id: "mentee_4",
@@ -572,34 +175,12 @@ export const SAMPLE_MENTEES: Mentee[] = [
     email: "ananya.iyer@gmail.com",
     careerGoal: "Product Designer & Frontend Dev",
     learningLanguage: "Design Systems & Figma",
-    pathTitle: "UI/UX & Product Design Systems",
-    pathId: "uiux",
-    progressPercent: 24,
-    currentMilestone: "Module 2: Design Token Systems & Accessibility",
-    nextMilestone: "Module 3: Prototyping Complex Micro-Interactions",
-    allMilestones: [
-      { id: "m1", title: "Module 1: Typography, Spacing & Layout Rhythm", completed: true },
-      { id: "m2", title: "Module 2: Design Token Systems & Accessibility", completed: false, current: true },
-      { id: "m3", title: "Module 3: Prototyping Complex Micro-Interactions", completed: false },
-      { id: "m4", title: "Module 4: User Testing & Research Syntheses", completed: false },
-      { id: "m5", title: "Module 5: Production Portfolio Case Study", completed: false },
-    ],
-    goals: [
-      { id: "g1", title: "Build Figma Variable Color Palette (WCAG AAA)", completed: false, targetDate: "Sep 30" },
-    ],
     totalSessions: 1,
     totalHours: 0.75,
     nextSessionDate: "Saturday, 11:00 AM",
     lastActive: "Today",
     status: "Pending",
-    needsAttention: true,
-    attentionReason: "Free intro session booked. Review portfolio deck prior to call.",
-    notes: "Transitioning from graphic design to product design. Very creative.",
-    feedbackHistory: [],
-    recommendedResources: [],
-    timeline: [
-      { id: "t8", date: "Sep 20", title: "Intro Session Booked", description: "Scheduled roadmap alignment call.", type: "session" },
-    ],
+    notes: "Introductory session booked. Review portfolio case study beforehand.",
   },
 ];
 
@@ -616,9 +197,6 @@ export const SAMPLE_SESSIONS: MentorSession[] = [
     bookingTime: "5:00 PM",
     status: "Booked",
     meetingUrl: "https://meet.jit.si/starfix-session-101-aarav",
-    prepNotes: "Review GraphQL federation schema and Redis cache invalidation strategies.",
-    actionItems: ["Review Redis cluster failover", "Draft API rate limiting proposal"],
-    needsFollowup: false,
     notes: "Review microservice decomposition and distributed caching strategy.",
     createdAt: new Date().toISOString(),
   },
@@ -634,9 +212,7 @@ export const SAMPLE_SESSIONS: MentorSession[] = [
     bookingTime: "11:00 AM",
     status: "Booked",
     meetingUrl: "https://meet.jit.si/starfix-session-102-ananya",
-    prepNotes: "Review Ananya's portfolio case studies and current Figma prototypes.",
-    needsFollowup: false,
-    notes: "Goal setting and timeline review for Q4 career transition.",
+    notes: "Goal setting and timeline review for Q4 transition.",
     createdAt: new Date().toISOString(),
   },
   {
@@ -651,8 +227,6 @@ export const SAMPLE_SESSIONS: MentorSession[] = [
     bookingTime: "6:30 PM",
     status: "Booked",
     meetingUrl: "https://meet.jit.si/starfix-session-103-priya",
-    prepNotes: "Inspect PyTorch container GPU memory allocation and Dockerfile.",
-    needsFollowup: false,
     notes: "Troubleshoot PyTorch container memory leak.",
     createdAt: new Date().toISOString(),
   },
@@ -667,70 +241,8 @@ export const SAMPLE_SESSIONS: MentorSession[] = [
     bookingDate: "Last Week",
     bookingTime: "4:00 PM",
     status: "Completed",
-    meetingUrl: "https://meet.jit.si/starfix-session-104-rohan",
-    discussionRecap: "Conducted simulated system design interview on designing a global video streaming platform. Evaluated CDN routing, edge caching, and adaptive bitrate transcoding.",
-    actionItems: ["Rohan to review Kafka consumer lag monitoring", "Submit written evaluation"],
-    needsFollowup: true,
     notes: "Strong answers on rate limiting and database sharding. Recommended for hire.",
     createdAt: new Date(Date.now() - 7 * 86400000).toISOString(),
-  },
-];
-
-export const SAMPLE_REQUESTS: MentorshipRequest[] = [
-  {
-    id: "req_1",
-    menteeName: "Vikram Malhotra",
-    menteeEmail: "vikram.m@engineer.com",
-    targetGoal: "Preparing for L5 Senior Backend Engineer rounds at Uber",
-    message: "Hi Kunal! I admire your work in distributed systems. I have an onsite interview in 3 weeks and need focused guidance on high-throughput microservice architecture.",
-    preferredTimes: ["Friday, 6:00 PM", "Saturday, 4:00 PM"],
-    receivedAt: "Today, 1:40 PM",
-    status: "Pending",
-  },
-  {
-    id: "req_2",
-    menteeName: "Meera Sen",
-    menteeEmail: "meera.sen@design.org",
-    targetGoal: "Transitioning into Full-Stack Development from QA",
-    message: "I completed the JavaScript core track and would love your mentorship to build my first production-grade full-stack project.",
-    preferredTimes: ["Sunday, 11:00 AM"],
-    receivedAt: "Yesterday",
-    status: "Pending",
-  },
-];
-
-export const SAMPLE_ACTIVITY_FEED: ActivityFeedItem[] = [
-  {
-    id: "act_1",
-    menteeName: "Aarav Sharma",
-    type: "milestone_completed",
-    title: "Completed Milestone: DB Query Optimization",
-    detail: "Passed all SQL index benchmarks and submitted benchmark charts.",
-    timeAgo: "2 hours ago",
-  },
-  {
-    id: "act_2",
-    menteeName: "Priya Patel",
-    type: "project_submitted",
-    title: "Submitted PyTorch Model Benchmark",
-    detail: "Trained transformer model reached 92% validation accuracy.",
-    timeAgo: "5 hours ago",
-  },
-  {
-    id: "act_3",
-    menteeName: "Ananya Iyer",
-    type: "session_booked",
-    title: "Booked Intro Session",
-    detail: "Free Intro & Roadmap Alignment scheduled for Saturday 11:00 AM.",
-    timeAgo: "1 day ago",
-  },
-  {
-    id: "act_4",
-    menteeName: "Rohan Verma",
-    type: "review_left",
-    title: "Left a 5-Star Review",
-    detail: "“Incredible depth of practical knowledge. The mock interview prepared me for every single curveball.”",
-    timeAgo: "3 days ago",
   },
 ];
 
@@ -804,36 +316,127 @@ export const SAMPLE_EARNINGS: MentorEarnings = {
   ],
 };
 
-/* ─── Mentorship Requests Persistence ─────────────────────────────────────── */
-
-export function getStoredRequests(): MentorshipRequest[] {
-  if (typeof window === "undefined") return SAMPLE_REQUESTS;
-  try {
-    const raw = localStorage.getItem(STORAGE_REQUESTS_KEY);
-    return raw ? JSON.parse(raw) : SAMPLE_REQUESTS;
-  } catch {
-    return SAMPLE_REQUESTS;
-  }
-}
-
-export function updateRequestStatus(
-  requestId: string,
-  newStatus: "Accepted" | "Declined"
-): MentorshipRequest[] {
-  const list = getStoredRequests().map((r) =>
-    r.id === requestId ? { ...r, status: newStatus } : r
-  );
-  if (typeof window !== "undefined") {
-    try {
-      localStorage.setItem(STORAGE_REQUESTS_KEY, JSON.stringify(list));
-    } catch {}
-  }
-  return list;
-}
-
 /* ─── Remote Data Loading & Synchronization ───────────────────────────────── */
 
-export async function fetchMentorData(\n  _userId: string,\n  userProfile?: UserProfile | null\n): Promise<{\n  mentor: MentorProfileData;\n  mentees: Mentee[];\n  sessions: MentorSession[];\n  requests: MentorshipRequest[];\n  activityFeed: ActivityFeedItem[];\n  reviews: MentorReview[];\n  earnings: MentorEarnings;\n}> {\n  const fallback = getDefaultMentorData(userProfile);\n  let mentorData = fallback;\n  let menteesList: Mentee[] = [];\n  let sessionsList: MentorSession[] = [];\n  let reviewsList: MentorReview[] = [];\n  let earningsData: MentorEarnings = { totalEarned: 0, pendingPayout: 0, completedSessionsCount: 0, avgPerSession: 0, currency: "INR", payoutMethod: "Not configured", history: [] };\n  try {\n    const authResult = await supabase.auth.getUser();\n    const authId = authResult.data.user?.id;\n    const email = authResult.data.user?.email || userProfile?.email || "";\n    if (!authId && !email) throw new Error("No authenticated mentor.");\n    let mentorRow: any = null;\n    if (authId) mentorRow = (await supabase.from("mentors").select("*").eq("profile_id", authId).maybeSingle()).data;\n    if (!mentorRow && email) mentorRow = (await supabase.from("mentors").select("*").eq("email", email).maybeSingle()).data;\n    if (!mentorRow) return { mentor: mentorData, mentees: [], sessions: [], requests: [], activityFeed: [], reviews: [], earnings: earningsData };\n    const extras = getStoredProfileExtras();\n    mentorData = {\n      id: mentorRow.id, legacyId: mentorRow.legacy_id ?? undefined, name: mentorRow.name || fallback.name, email: mentorRow.email || email,\n      avatarUrl: mentorRow.avatar_url || fallback.avatarUrl, headline: mentorRow.headline || fallback.headline, company: mentorRow.company || fallback.company,\n      category: mentorRow.category || fallback.category, yearsExperience: Number(mentorRow.years_experience) || 0, rating: Number(mentorRow.rating) || 0,\n      totalReviews: Number(mentorRow.total_reviews) || 0, skills: Array.isArray(mentorRow.skills) ? mentorRow.skills : [], bio: mentorRow.bio || "",\n      mentoringApproach: mentorRow.mentoring_approach || "", mentoringStyle: extras.mentoringStyle, sessionTypes: extras.sessionTypes,\n      targetLevel: extras.targetLevel, areasCanHelp: extras.areasCanHelp, languages: Array.isArray(mentorRow.languages) ? mentorRow.languages : [],\n      location: mentorRow.location || "", availability: mentorRow.availability || "Available", acceptingMentees: mentorRow.availability !== "Paused",\n      offersFreeIntro: !!mentorRow.offers_free_intro, price: mentorRow.price || "₹0", sessionDuration: "45 min",\n      linkedinUrl: mentorRow.linkedin_url || undefined, mentorSince: mentorRow.mentor_since || mentorRow.created_at || undefined,\n    };\n    const filter = mentorRow.legacy_id ? "mentor_id.eq." + mentorRow.id + ",mentor_num.eq." + mentorRow.legacy_id : "mentor_id.eq." + mentorRow.id;\n    const bookings = (await supabase.from("bookings").select("id,student_id,mentor_id,mentor_num,session_type,duration,price,amount,currency,booking_date,booking_time,scheduled_start,scheduled_end,status,notes,created_at").or(filter).order("scheduled_start", { ascending: true, nullsFirst: false })).data || [];\n    const studentIds = [...new Set(bookings.map((b: any) => b.student_id).filter(Boolean))];\n    const studentMap = new Map<string, any>();\n    if (studentIds.length) {\n      const profiles = (await supabase.from("profiles").select("id,full_name,email,avatar_url,career_goal,learning_language,updated_at").in("id", studentIds)).data || [];\n      profiles.forEach((p: any) => studentMap.set(p.id, p));\n    }\n    const progressMap = new Map<string, any>();\n    if (studentIds.length) {\n      const progress = (await supabase.from("user_progress").select("user_id,path_id,overall_progress,current_milestone_id,completed_at").in("user_id", studentIds)).data || [];\n      progress.forEach((p: any) => progressMap.set(p.user_id, p));\n    }\n    const pathIds = [...new Set([...progressMap.values()].map((p: any) => p.path_id).filter(Boolean))];\n    const pathMap = new Map<string, any>();\n    if (pathIds.length) { const paths = (await supabase.from("growth_paths").select("id,title,slug").in("id", pathIds)).data || []; paths.forEach((p: any) => pathMap.set(p.id, p)); }\n    const milestoneIds = [...new Set([...progressMap.values()].map((p: any) => p.current_milestone_id).filter(Boolean))];\n    const milestoneMap = new Map<string, string>();\n    if (milestoneIds.length) { const ms = (await supabase.from("milestones").select("id,title").in("id", milestoneIds)).data || []; ms.forEach((m: any) => milestoneMap.set(m.id, m.title)); }\n    const notes = studentIds.length ? ((await supabase.from("mentor_notes").select("student_id,note,updated_at").eq("mentor_id", mentorRow.id).in("student_id", studentIds)).data || []) : [];\n    const noteMap = new Map(notes.map((n: any) => [n.student_id, n]));\n    const goals = studentIds.length ? ((await supabase.from("mentor_goals").select("id,student_id,title,target_date,completed").eq("mentor_id", mentorRow.id).in("student_id", studentIds).order("created_at", { ascending: false })).data || []) : [];\n    const goalsMap = new Map<string, MenteeGoal[]>();\n    goals.forEach((g: any) => { const a = goalsMap.get(g.student_id) || []; a.push({ id: String(g.id), title: g.title, completed: !!g.completed, targetDate: g.target_date || undefined }); goalsMap.set(g.student_id, a); });\n    const feedback = studentIds.length ? ((await supabase.from("mentor_feedback").select("id,student_id,focus,content,rating,created_at").eq("mentor_id", mentorRow.id).in("student_id", studentIds).order("created_at", { ascending: false })).data || []) : [];\n    const feedbackMap = new Map<string, MenteeFeedback[]>();\n    feedback.forEach((fb: any) => { const a = feedbackMap.get(fb.student_id) || []; a.push({ id: String(fb.id), date: new Date(fb.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }), content: fb.content, focus: fb.focus || "General", rating: fb.rating ?? undefined }); feedbackMap.set(fb.student_id, a); });\n    const resources = studentIds.length ? ((await supabase.from("shared_resources").select("id,student_id,resource_type,title,url,created_at").eq("mentor_id", mentorRow.id).in("student_id", studentIds).order("created_at", { ascending: false })).data || []) : [];\n    const resourceMap = new Map<string, MenteeResource[]>();\n    resources.forEach((r: any) => { const a = resourceMap.get(r.student_id) || []; const type = ["video","doc","project","article"].includes(r.resource_type) ? r.resource_type : "article"; a.push({ id: String(r.id), title: r.title, type: type as any, url: r.url || "", addedAt: new Date(r.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) }); resourceMap.set(r.student_id, a); });\n    studentIds.forEach((studentId) => {\n      const p = studentMap.get(studentId) || {}; const progress = progressMap.get(studentId); const path = progress ? pathMap.get(progress.path_id) : null;\n      const sb = bookings.filter((b: any) => b.student_id === studentId);\n      const upcoming = sb.find((b: any) => b.status === "confirmed" && b.scheduled_start && new Date(b.scheduled_start) >= new Date());\n      const completed = sb.filter((b: any) => b.status === "completed").length;\n      const status: Mentee["status"] = upcoming ? "Active" : completed ? "Completed" : "Pending";\n      menteesList.push({ id: studentId, name: p.full_name || p.email?.split("@")[0] || "Student", email: p.email || "", avatarUrl: p.avatar_url || undefined,\n        careerGoal: p.career_goal || "", learningLanguage: p.learning_language || "", pathTitle: path?.title || "Growth Path", pathId: path?.slug || path?.id || "",\n        progressPercent: Math.max(0, Math.min(100, Number(progress?.overall_progress) || 0)), currentMilestone: milestoneMap.get(progress?.current_milestone_id) || "No active milestone",\n        nextMilestone: progress?.completed_at ? "All modules completed 🎉" : milestoneMap.get(progress?.current_milestone_id) || "Continue current milestone", allMilestones: [],\n        goals: goalsMap.get(studentId) || [], totalSessions: sb.length, totalHours: sb.reduce((sum: number, b: any) => sum + ((parseInt(String(b.duration || "").replace(/[^0-9]/g, "")) || 45) / 60), 0),\n        nextSessionDate: upcoming?.scheduled_start ? new Date(upcoming.scheduled_start).toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : undefined,\n        lastActive: p.updated_at ? new Date(p.updated_at).toLocaleDateString() : undefined, status, needsAttention: false, notes: noteMap.get(studentId)?.note || "",\n        feedbackHistory: feedbackMap.get(studentId) || [], recommendedResources: resourceMap.get(studentId) || [],\n        timeline: sb.slice(0, 10).map((b: any) => ({ id: String(b.id), date: new Date(b.scheduled_start || b.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }), title: b.session_type || "Mentorship session", description: b.notes || "Mentorship session", type: "session" as const })) });\n    });\n    sessionsList = await fetchMentorSessionsFromDb(mentorRow.id, mentorRow.legacy_id);\n    reviewsList = await fetchMentorReviewsFromDb(mentorRow.id);\n    earningsData = await fetchMentorEarningsFromDb(mentorRow.id);\n    const activityFeed: ActivityFeedItem[] = sessionsList.slice(0, 8).map((s) => ({ id: s.id, menteeName: s.menteeName, type: s.status === "Booked" ? "session_booked" : "milestone_completed", title: s.status === "Booked" ? "Session booked" : "Session completed", detail: s.sessionType, timeAgo: new Date(s.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" }) }));\n    return { mentor: mentorData, mentees: menteesList, sessions: sessionsList, requests: [], activityFeed, reviews: reviewsList, earnings: earningsData };\n  } catch (err) {\n    console.warn("Error in fetchMentorData:", err);\n    return { mentor: mentorData, mentees: menteesList, sessions: sessionsList, requests: [], activityFeed: [], reviews: reviewsList, earnings: earningsData };\n  }\n}\n\nexport async function fetchMentorSessionsFromDb(mentorId: string, legacyId?: number): Promise<MentorSession[]> {\n  const filter = legacyId ? "mentor_id.eq." + mentorId + ",mentor_num.eq." + legacyId : "mentor_id.eq." + mentorId;\n  const rows = (await supabase.from("bookings").select("id,student_id,session_type,duration,price,amount,booking_date,booking_time,scheduled_start,status,notes,created_at").or(filter).order("scheduled_start", { ascending: true, nullsFirst: false })).data || [];\n  const studentIds = [...new Set(rows.map((r: any) => r.student_id).filter(Boolean))];\n  const studentMap = new Map<string, any>();\n  if (studentIds.length) { const ps = (await supabase.from("profiles").select("id,full_name,email,avatar_url").in("id", studentIds)).data || []; ps.forEach((p: any) => studentMap.set(p.id, p)); }\n  const ids = rows.map((r: any) => r.id);\n  const followups = ids.length ? ((await supabase.from("session_followups").select("booking_id,summary,discussed,next_steps,follow_up_date").in("booking_id", ids)).data || []) : [];\n  const fm = new Map(followups.map((f: any) => [f.booking_id, f]));\n  return rows.map((b: any) => { const p = studentMap.get(b.student_id); const f = fm.get(b.id); const status = b.status === "completed" ? "Completed" : b.status === "cancelled" ? "Cancelled" : "Booked"; return {\n    id: String(b.id), menteeId: b.student_id || "", menteeName: p?.full_name || p?.email?.split("@")[0] || "Student", menteeEmail: p?.email, menteeAvatar: p?.avatar_url,\n    sessionType: b.session_type || "Mentorship Session", duration: b.duration || "45 min", price: b.price || ("₹" + Number(b.amount || 0).toLocaleString("en-IN")),\n    bookingDate: b.booking_date || (b.scheduled_start ? new Date(b.scheduled_start).toLocaleDateString() : "Scheduled"), bookingTime: b.booking_time || "", status, meetingUrl: "https://meet.jit.si/starfix-" + b.id,\n    notes: b.notes || undefined, discussionRecap: f?.summary || undefined, prepNotes: f?.discussed || b.notes || undefined, actionItems: f?.next_steps ? String(f.next_steps).split("\\n").filter(Boolean) : [], needsFollowup: !!f?.follow_up_date, createdAt: b.created_at || new Date().toISOString()\n  }; });\n}\n\nexport async function updateMentorSessionInDb(sessionId: string, patch: Partial<MentorSession>): Promise<boolean> {\n  try {\n    const bookingPatch: Record<string, any> = {}; if (patch.notes !== undefined) bookingPatch.notes = patch.notes; if (patch.prepNotes !== undefined) bookingPatch.notes = patch.prepNotes;\n    if (Object.keys(bookingPatch).length) { const r = await supabase.from("bookings").update(bookingPatch).eq("id", sessionId); if (r.error) return false; }\n    if (patch.discussionRecap !== undefined || patch.actionItems !== undefined || patch.needsFollowup !== undefined || patch.prepNotes !== undefined) {\n      const booking = (await supabase.from("bookings").select("student_id,mentor_id").eq("id", sessionId).maybeSingle()).data; if (!booking?.student_id || !booking?.mentor_id) return false;\n      const payload = { booking_id: sessionId, mentor_id: booking.mentor_id, student_id: booking.student_id, summary: patch.discussionRecap || "", discussed: patch.prepNotes || "", next_steps: Array.isArray(patch.actionItems) ? patch.actionItems.join("\n") : "", follow_up_date: patch.needsFollowup ? new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10) : null };\n      const existing = (await supabase.from("session_followups").select("id").eq("booking_id", sessionId).maybeSingle()).data;\n      const r = existing?.id ? await supabase.from("session_followups").update(payload).eq("id", existing.id) : await supabase.from("session_followups").insert(payload);\n      return !r.error;\n    }\n    return true;\n  } catch { return false; }\n}\n\nexport async function createMentorSessionInDb(mentorId: string, legacyId: number | undefined, session: Omit<MentorSession, "id" | "createdAt">): Promise<MentorSession | null> {\n  const studentId = session.menteeId && session.menteeId.includes("-") ? session.menteeId : null; if (!studentId) return null;\n  const amount = Number(String(session.price || "0").replace(/[^0-9.]/g, "")) || 0;\n  const r = await supabase.from("bookings").insert({ student_id: studentId, mentor_id: mentorId, mentor_num: legacyId ?? null, session_type: session.sessionType, duration: session.duration, price: session.price, amount, currency: "INR", booking_date: session.bookingDate, booking_time: session.bookingTime, notes: session.prepNotes || null, status: "confirmed" }).select("id,created_at").single();\n  if (r.error || !r.data) return null; return { ...session, id: String(r.data.id), createdAt: r.data.created_at };\n}\n\nexport async function saveMentorNoteToDb(mentorId: string, studentId: string, note: string): Promise<boolean> {\n  const existing = (await supabase.from("mentor_notes").select("id").eq("mentor_id", mentorId).eq("student_id", studentId).maybeSingle()).data;\n  const r = existing?.id ? await supabase.from("mentor_notes").update({ note, updated_at: new Date().toISOString() }).eq("id", existing.id) : await supabase.from("mentor_notes").insert({ mentor_id: mentorId, student_id: studentId, note }); return !r.error;\n}\nexport async function saveMentorGoalToDb(mentorId: string, studentId: string, goal: MenteeGoal): Promise<boolean> {\n  const r = await supabase.from("mentor_goals").upsert({ mentor_id: mentorId, student_id: studentId, title: goal.title, target_date: goal.targetDate || null, completed: goal.completed }, { onConflict: "mentor_id,student_id,title" }); return !r.error;\n}\nexport async function updateMentorGoalInDb(mentorId: string, studentId: string, goal: MenteeGoal): Promise<boolean> {\n  const r = await supabase.from("mentor_goals").update({ title: goal.title, target_date: goal.targetDate || null, completed: goal.completed, updated_at: new Date().toISOString() }).eq("id", goal.id).eq("mentor_id", mentorId).eq("student_id", studentId); return !r.error;\n}\nexport async function saveMentorFeedbackToDb(mentorId: string, studentId: string, feedback: MenteeFeedback): Promise<boolean> {\n  const r = await supabase.from("mentor_feedback").insert({ mentor_id: mentorId, student_id: studentId, focus: feedback.focus, content: feedback.content, rating: feedback.rating ?? null }); return !r.error;\n}\nexport async function saveSharedResourceToDb(mentorId: string, studentId: string, resource: MenteeResource, message?: string): Promise<boolean> {\n  const r = await supabase.from("shared_resources").insert({ mentor_id: mentorId, student_id: studentId, resource_type: resource.type, title: resource.title, url: resource.url, message: message || null }); return !r.error;\n}\nexport async function fetchMentorReviewsFromDb(mentorId: string): Promise<MentorReview[]> {\n  const rows = (await supabase.from("reviews").select("id,student_id,rating,review_text,created_at").eq("mentor_id", mentorId).order("created_at", { ascending: false })).data || [];\n  const ids = [...new Set(rows.map((r: any) => r.student_id).filter(Boolean))]; const ps = ids.length ? ((await supabase.from("profiles").select("id,full_name").in("id", ids)).data || []) : []; const pm = new Map(ps.map((p: any) => [p.id, p.full_name]));\n  return rows.map((r: any) => ({ id: String(r.id), menteeName: pm.get(r.student_id) || "Student", rating: Number(r.rating) || 0, comment: r.review_text || "", date: new Date(r.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }), sessionType: "Mentorship Session" }));\n}\nexport async function fetchMentorEarningsFromDb(mentorId: string): Promise<MentorEarnings> {\n  const rows = (await supabase.from("bookings").select("id,student_id,session_type,amount,price,status,created_at").eq("mentor_id", mentorId).order("created_at", { ascending: false })).data || [];\n  const completed = rows.filter((r: any) => r.status === "completed"); const pending = rows.filter((r: any) => r.status === "confirmed");\n  const ids = [...new Set(rows.map((r: any) => r.student_id).filter(Boolean))]; const ps = ids.length ? ((await supabase.from("profiles").select("id,full_name").in("id", ids)).data || []) : []; const pm = new Map(ps.map((p: any) => [p.id, p.full_name]));\n  const value = (r: any) => Number(r.amount) || Number(String(r.price || "").replace(/[^0-9.]/g, "")) || 0; const total = completed.reduce((s: number, r: any) => s + value(r), 0); const pend = pending.reduce((s: number, r: any) => s + value(r), 0);\n  return { totalEarned: total, pendingPayout: pend, completedSessionsCount: completed.length, avgPerSession: completed.length ? Math.round(total / completed.length) : 0, currency: "INR", payoutMethod: "Not configured", history: rows.slice(0, 20).map((r: any) => ({ id: String(r.id), date: new Date(r.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }), sessionTitle: r.session_type || "Mentorship Session", menteeName: pm.get(r.student_id) || "Student", amount: value(r), status: r.status === "completed" ? "Paid" : "Pending" })) };\n}\nexport async function updateMentorProfileInDb(
+export async function fetchMentorData(
+  _userId: string,
+  userProfile?: UserProfile | null
+): Promise<{
+  mentor: MentorProfileData;
+  mentees: Mentee[];
+  sessions: MentorSession[];
+  requests: MentorshipRequest[];
+  activityFeed: ActivityFeedItem[];
+  reviews: MentorReview[];
+  earnings: MentorEarnings;
+}> {
+  const fallback = getDefaultMentorData(userProfile);
+  let mentorData = fallback;
+  let menteesList: Mentee[] = [];
+  let sessionsList: MentorSession[] = [];
+  let reviewsList: MentorReview[] = [];
+  let earningsData: MentorEarnings = { totalEarned: 0, pendingPayout: 0, completedSessionsCount: 0, avgPerSession: 0, currency: "INR", payoutMethod: "Not configured", history: [] };
+  try {
+    const authResult = await supabase.auth.getUser();
+    const authId = authResult.data.user?.id;
+    const email = authResult.data.user?.email || userProfile?.email || "";
+    if (!authId && !email) throw new Error("No authenticated mentor.");
+    let mentorRow: any = null;
+    if (authId) mentorRow = (await supabase.from("mentors").select("*").eq("profile_id", authId).maybeSingle()).data;
+    if (!mentorRow && email) mentorRow = (await supabase.from("mentors").select("*").eq("email", email).maybeSingle()).data;
+    if (!mentorRow) return { mentor: mentorData, mentees: [], sessions: [], requests: [], activityFeed: [], reviews: [], earnings: earningsData };
+    const extras = getStoredProfileExtras();
+    mentorData = { id: mentorRow.id, legacyId: mentorRow.legacy_id ?? undefined, name: mentorRow.name || fallback.name, email: mentorRow.email || email, avatarUrl: mentorRow.avatar_url || fallback.avatarUrl, headline: mentorRow.headline || fallback.headline, company: mentorRow.company || fallback.company, category: mentorRow.category || fallback.category, yearsExperience: Number(mentorRow.years_experience) || 0, rating: Number(mentorRow.rating) || 0, totalReviews: Number(mentorRow.total_reviews) || 0, skills: Array.isArray(mentorRow.skills) ? mentorRow.skills : [], bio: mentorRow.bio || "", mentoringApproach: mentorRow.mentoring_approach || "", mentoringStyle: extras.mentoringStyle, sessionTypes: extras.sessionTypes, targetLevel: extras.targetLevel, areasCanHelp: extras.areasCanHelp, languages: Array.isArray(mentorRow.languages) ? mentorRow.languages : [], location: mentorRow.location || "", availability: mentorRow.availability || "Available", acceptingMentees: mentorRow.availability !== "Paused", offersFreeIntro: !!mentorRow.offers_free_intro, price: mentorRow.price || "₹0", sessionDuration: "45 min", linkedinUrl: mentorRow.linkedin_url || undefined, mentorSince: mentorRow.mentor_since || mentorRow.created_at || undefined };
+    const filter = mentorRow.legacy_id ? "mentor_id.eq." + mentorRow.id + ",mentor_num.eq." + mentorRow.legacy_id : "mentor_id.eq." + mentorRow.id;
+    const bookings = (await supabase.from("bookings").select("id,student_id,mentor_id,mentor_num,session_type,duration,price,amount,currency,booking_date,booking_time,scheduled_start,scheduled_end,status,notes,created_at").or(filter).order("scheduled_start", { ascending: true, nullsFirst: false })).data || [];
+    const studentIds = [...new Set(bookings.map((b: any) => b.student_id).filter(Boolean))];
+    const studentMap = new Map<string, any>();
+    if (studentIds.length) { const profiles = (await supabase.from("profiles").select("id,full_name,email,avatar_url,career_goal,learning_language,updated_at").in("id", studentIds)).data || []; profiles.forEach((p: any) => studentMap.set(p.id, p)); }
+    const progressMap = new Map<string, any>();
+    if (studentIds.length) { const progress = (await supabase.from("user_progress").select("user_id,path_id,overall_progress,current_milestone_id,completed_at").in("user_id", studentIds)).data || []; progress.forEach((p: any) => progressMap.set(p.user_id, p)); }
+    const pathIds = [...new Set([...progressMap.values()].map((p: any) => p.path_id).filter(Boolean))];
+    const pathMap = new Map<string, any>();
+    if (pathIds.length) { const paths = (await supabase.from("growth_paths").select("id,title,slug").in("id", pathIds)).data || []; paths.forEach((p: any) => pathMap.set(p.id, p)); }
+    const milestoneIds = [...new Set([...progressMap.values()].map((p: any) => p.current_milestone_id).filter(Boolean))];
+    const milestoneMap = new Map<string, string>();
+    if (milestoneIds.length) { const ms = (await supabase.from("milestones").select("id,title").in("id", milestoneIds)).data || []; ms.forEach((m: any) => milestoneMap.set(m.id, m.title)); }
+    const milestonesByPath = new Map<string, any[]>();
+    if (pathIds.length) { const ms = (await supabase.from("milestones").select("id,path_id,title,order_index").in("path_id", pathIds).order("order_index", { ascending: true })).data || []; ms.forEach((m: any) => { const a = milestonesByPath.get(m.path_id) || []; a.push(m); milestonesByPath.set(m.path_id, a); }); }
+    const milestoneProgressMap = new Map<string, Set<string>>();
+    if (studentIds.length) { const mp = (await supabase.from("milestone_progress").select("user_id,milestone_id,completed").in("user_id", studentIds)).data || []; mp.forEach((r: any) => { if (!r.completed) return; const s = milestoneProgressMap.get(r.user_id) || new Set<string>(); s.add(r.milestone_id); milestoneProgressMap.set(r.user_id, s); }); }
+    const notes = studentIds.length ? ((await supabase.from("mentor_notes").select("student_id,note,updated_at").eq("mentor_id", mentorRow.id).in("student_id", studentIds)).data || []) : [];
+    const noteMap = new Map(notes.map((n: any) => [n.student_id, n]));
+    const goals = studentIds.length ? ((await supabase.from("mentor_goals").select("id,student_id,title,target_date,completed").eq("mentor_id", mentorRow.id).in("student_id", studentIds).order("created_at", { ascending: false })).data || []) : [];
+    const goalsMap = new Map<string, MenteeGoal[]>();
+    goals.forEach((g: any) => { const a = goalsMap.get(g.student_id) || []; a.push({ id: String(g.id), title: g.title, completed: !!g.completed, targetDate: g.target_date || undefined }); goalsMap.set(g.student_id, a); });
+    const feedback = studentIds.length ? ((await supabase.from("mentor_feedback").select("id,student_id,focus,content,rating,created_at").eq("mentor_id", mentorRow.id).in("student_id", studentIds).order("created_at", { ascending: false })).data || []) : [];
+    const feedbackMap = new Map<string, MenteeFeedback[]>();
+    feedback.forEach((fb: any) => { const a = feedbackMap.get(fb.student_id) || []; a.push({ id: String(fb.id), date: new Date(fb.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }), content: fb.content, focus: fb.focus || "General", rating: fb.rating ?? undefined }); feedbackMap.set(fb.student_id, a); });
+    const resources = studentIds.length ? ((await supabase.from("shared_resources").select("id,student_id,resource_type,title,url,created_at").eq("mentor_id", mentorRow.id).in("student_id", studentIds).order("created_at", { ascending: false })).data || []) : [];
+    const resourceMap = new Map<string, MenteeResource[]>();
+    resources.forEach((r: any) => { const a = resourceMap.get(r.student_id) || []; const type = ["video","doc","project","article"].includes(r.resource_type) ? r.resource_type : "article"; a.push({ id: String(r.id), title: r.title, type: type as any, url: r.url || "", addedAt: new Date(r.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) }); resourceMap.set(r.student_id, a); });
+    studentIds.forEach((studentId) => {
+      const p = studentMap.get(studentId) || {}; const progress = progressMap.get(studentId); const path = progress ? pathMap.get(progress.path_id) : null;
+      const sb = bookings.filter((b: any) => b.student_id === studentId);
+      const upcoming = sb.find((b: any) => b.status === "confirmed" && b.scheduled_start && new Date(b.scheduled_start) >= new Date());
+      const completed = sb.filter((b: any) => b.status === "completed").length;
+      const status: Mentee["status"] = upcoming ? "Active" : completed ? "Completed" : "Pending";
+      const allMs = (milestonesByPath.get(progress?.path_id) || []).map((m: any) => ({ id: String(m.id), title: m.title, completed: milestoneProgressMap.get(studentId)?.has(m.id) || false, current: m.id === progress?.current_milestone_id }));
+      menteesList.push({ id: studentId, name: p.full_name || p.email?.split("@")[0] || "Student", email: p.email || "", avatarUrl: p.avatar_url || undefined, careerGoal: p.career_goal || "", learningLanguage: p.learning_language || "", pathTitle: path?.title || "Growth Path", pathId: path?.slug || path?.id || "", progressPercent: Math.max(0, Math.min(100, Number(progress?.overall_progress) || 0)), currentMilestone: milestoneMap.get(progress?.current_milestone_id) || "No active milestone", nextMilestone: progress?.completed_at ? "All modules completed 🎉" : milestoneMap.get(progress?.current_milestone_id) || "Continue current milestone", allMilestones: allMs, goals: goalsMap.get(studentId) || [], totalSessions: sb.length, totalHours: sb.reduce((sum: number, b: any) => sum + ((parseInt(String(b.duration || "").replace(/[^0-9]/g, "")) || 45) / 60), 0), nextSessionDate: upcoming?.scheduled_start ? new Date(upcoming.scheduled_start).toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : undefined, lastActive: p.updated_at ? new Date(p.updated_at).toLocaleDateString() : undefined, status, needsAttention: false, attentionReason: undefined, notes: noteMap.get(studentId)?.note || "", feedbackHistory: feedbackMap.get(studentId) || [], recommendedResources: resourceMap.get(studentId) || [], timeline: sb.slice(0, 10).map((b: any) => ({ id: String(b.id), date: new Date(b.scheduled_start || b.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }), title: b.session_type || "Mentorship session", description: b.notes || "Mentorship session", type: "session" as const })) });
+    });
+    sessionsList = await fetchMentorSessionsFromDb(mentorRow.id, mentorRow.legacy_id);
+    reviewsList = await fetchMentorReviewsFromDb(mentorRow.id);
+    earningsData = await fetchMentorEarningsFromDb(mentorRow.id);
+    const activityFeed: ActivityFeedItem[] = sessionsList.slice(0, 8).map((s) => ({ id: s.id, menteeName: s.menteeName, type: s.status === "Booked" ? "session_booked" : "milestone_completed", title: s.status === "Booked" ? "Session booked" : "Session completed", detail: s.sessionType, timeAgo: new Date(s.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" }) }));
+    return { mentor: mentorData, mentees: menteesList, sessions: sessionsList, requests: [], activityFeed, reviews: reviewsList, earnings: earningsData };
+  } catch (err) {
+    console.warn("Error in fetchMentorData:", err);
+    return { mentor: mentorData, mentees: menteesList, sessions: sessionsList, requests: [], activityFeed: [], reviews: reviewsList, earnings: earningsData };
+  }
+}
+
+export async function fetchMentorSessionsFromDb(mentorId: string, legacyId?: number): Promise<MentorSession[]> {
+  const filter = legacyId ? "mentor_id.eq." + mentorId + ",mentor_num.eq." + legacyId : "mentor_id.eq." + mentorId;
+  const rows = (await supabase.from("bookings").select("id,student_id,session_type,duration,price,amount,booking_date,booking_time,scheduled_start,status,notes,created_at").or(filter).order("scheduled_start", { ascending: true, nullsFirst: false })).data || [];
+  const studentIds = [...new Set(rows.map((r: any) => r.student_id).filter(Boolean))];
+  const studentMap = new Map<string, any>();
+  if (studentIds.length) { const ps = (await supabase.from("profiles").select("id,full_name,email,avatar_url").in("id", studentIds)).data || []; ps.forEach((p: any) => studentMap.set(p.id, p)); }
+  const ids = rows.map((r: any) => r.id);
+  const followups = ids.length ? ((await supabase.from("session_followups").select("booking_id,summary,discussed,next_steps,follow_up_date").in("booking_id", ids)).data || []) : [];
+  const fm = new Map(followups.map((f: any) => [f.booking_id, f]));
+  return rows.map((b: any) => { const p = studentMap.get(b.student_id); const f = fm.get(b.id); const status = b.status === "completed" ? "Completed" : b.status === "cancelled" ? "Cancelled" : "Booked"; return { id: String(b.id), menteeId: b.student_id || "", menteeName: p?.full_name || p?.email?.split("@")[0] || "Student", menteeEmail: p?.email, menteeAvatar: p?.avatar_url, sessionType: b.session_type || "Mentorship Session", duration: b.duration || "45 min", price: b.price || ("₹" + Number(b.amount || 0).toLocaleString("en-IN")), bookingDate: b.booking_date || (b.scheduled_start ? new Date(b.scheduled_start).toLocaleDateString() : "Scheduled"), bookingTime: b.booking_time || "", status, meetingUrl: "https://meet.jit.si/starfix-" + b.id, notes: b.notes || undefined, discussionRecap: f?.summary || undefined, prepNotes: f?.discussed || b.notes || undefined, actionItems: f?.next_steps ? String(f.next_steps).split("\n").filter(Boolean) : [], needsFollowup: !!f?.follow_up_date, createdAt: b.created_at || new Date().toISOString() }; });
+}
+
+export async function updateMentorSessionInDb(sessionId: string, patch: Partial<MentorSession>): Promise<boolean> {
+  try {
+    const bookingPatch: Record<string, any> = {}; if (patch.notes !== undefined) bookingPatch.notes = patch.notes; if (patch.prepNotes !== undefined) bookingPatch.notes = patch.prepNotes;
+    if (Object.keys(bookingPatch).length) { const r = await supabase.from("bookings").update(bookingPatch).eq("id", sessionId); if (r.error) return false; }
+    if (patch.discussionRecap !== undefined || patch.actionItems !== undefined || patch.needsFollowup !== undefined || patch.prepNotes !== undefined) {
+      const booking = (await supabase.from("bookings").select("student_id,mentor_id").eq("id", sessionId).maybeSingle()).data; if (!booking?.student_id || !booking?.mentor_id) return false;
+      const payload = { booking_id: sessionId, mentor_id: booking.mentor_id, student_id: booking.student_id, summary: patch.discussionRecap || "", discussed: patch.prepNotes || "", next_steps: Array.isArray(patch.actionItems) ? patch.actionItems.join("\n") : "", follow_up_date: patch.needsFollowup ? new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10) : null };
+      const existing = (await supabase.from("session_followups").select("id").eq("booking_id", sessionId).maybeSingle()).data;
+      const r = existing?.id ? await supabase.from("session_followups").update(payload).eq("id", existing.id) : await supabase.from("session_followups").insert(payload);
+      return !r.error;
+    }
+    return true;
+  } catch { return false; }
+}
+
+export async function createMentorSessionInDb(mentorId: string, legacyId: number | undefined, session: Omit<MentorSession, "id" | "createdAt">): Promise<MentorSession | null> {
+  const studentId = session.menteeId && session.menteeId.includes("-") ? session.menteeId : null; if (!studentId) return null;
+  const amount = Number(String(session.price || "0").replace(/[^0-9.]/g, "")) || 0;
+  const r = await supabase.from("bookings").insert({ student_id: studentId, mentor_id: mentorId, mentor_num: legacyId ?? null, session_type: session.sessionType, duration: session.duration, price: session.price, amount, currency: "INR", booking_date: session.bookingDate, booking_time: session.bookingTime, notes: session.prepNotes || null, status: "confirmed" }).select("id,created_at").single();
+  if (r.error || !r.data) return null; return { ...session, id: String(r.data.id), createdAt: r.data.created_at };
+}
+
+export async function saveMentorNoteToDb(mentorId: string, studentId: string, note: string): Promise<boolean> { const existing = (await supabase.from("mentor_notes").select("id").eq("mentor_id", mentorId).eq("student_id", studentId).maybeSingle()).data; const r = existing?.id ? await supabase.from("mentor_notes").update({ note, updated_at: new Date().toISOString() }).eq("id", existing.id) : await supabase.from("mentor_notes").insert({ mentor_id: mentorId, student_id: studentId, note }); return !r.error; }
+export async function saveMentorGoalToDb(mentorId: string, studentId: string, goal: MenteeGoal): Promise<boolean> { const r = await supabase.from("mentor_goals").upsert({ mentor_id: mentorId, student_id: studentId, title: goal.title, target_date: goal.targetDate || null, completed: goal.completed }, { onConflict: "mentor_id,student_id,title" }); return !r.error; }
+export async function updateMentorGoalInDb(mentorId: string, studentId: string, goal: MenteeGoal): Promise<boolean> { const r = await supabase.from("mentor_goals").update({ title: goal.title, target_date: goal.targetDate || null, completed: goal.completed, updated_at: new Date().toISOString() }).eq("id", goal.id).eq("mentor_id", mentorId).eq("student_id", studentId); return !r.error; }
+export async function saveMentorFeedbackToDb(mentorId: string, studentId: string, feedback: MenteeFeedback): Promise<boolean> { const r = await supabase.from("mentor_feedback").insert({ mentor_id: mentorId, student_id: studentId, focus: feedback.focus, content: feedback.content, rating: feedback.rating ?? null }); return !r.error; }
+export async function saveSharedResourceToDb(mentorId: string, studentId: string, resource: MenteeResource, message?: string): Promise<boolean> { const r = await supabase.from("shared_resources").insert({ mentor_id: mentorId, student_id: studentId, resource_type: resource.type, title: resource.title, url: resource.url, message: message || null }); return !r.error; }
+export async function fetchMentorReviewsFromDb(mentorId: string): Promise<MentorReview[]> { const rows = (await supabase.from("reviews").select("id,student_id,rating,review_text,created_at").eq("mentor_id", mentorId).order("created_at", { ascending: false })).data || []; const ids = [...new Set(rows.map((r: any) => r.student_id).filter(Boolean))]; const ps = ids.length ? ((await supabase.from("profiles").select("id,full_name").in("id", ids)).data || []) : []; const pm = new Map(ps.map((p: any) => [p.id, p.full_name])); return rows.map((r: any) => ({ id: String(r.id), menteeName: pm.get(r.student_id) || "Student", rating: Number(r.rating) || 0, comment: r.review_text || "", date: new Date(r.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }), sessionType: "Mentorship Session" })); }
+export async function fetchMentorEarningsFromDb(mentorId: string): Promise<MentorEarnings> { const rows = (await supabase.from("bookings").select("id,student_id,session_type,amount,price,status,created_at").eq("mentor_id", mentorId).order("created_at", { ascending: false })).data || []; const completed = rows.filter((r: any) => r.status === "completed"); const pending = rows.filter((r: any) => r.status === "confirmed"); const ids = [...new Set(rows.map((r: any) => r.student_id).filter(Boolean))]; const ps = ids.length ? ((await supabase.from("profiles").select("id,full_name").in("id", ids)).data || []) : []; const pm = new Map(ps.map((p: any) => [p.id, p.full_name])); const value = (r: any) => Number(r.amount) || Number(String(r.price || "").replace(/[^0-9.]/g, "")) || 0; const total = completed.reduce((s: number, r: any) => s + value(r), 0); const pend = pending.reduce((s: number, r: any) => s + value(r), 0); return { totalEarned: total, pendingPayout: pend, completedSessionsCount: completed.length, avgPerSession: completed.length ? Math.round(total / completed.length) : 0, currency: "INR", payoutMethod: "Not configured", history: rows.slice(0, 20).map((r: any) => ({ id: String(r.id), date: new Date(r.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }), sessionTitle: r.session_type || "Mentorship Session", menteeName: pm.get(r.student_id) || "Student", amount: value(r), status: r.status === "completed" ? "Paid" : "Pending" })) }; }
+export async function updateMentorProfileInDb(
   mentorId: string,
   patch: Partial<MentorProfileData>
 ): Promise<boolean> {
@@ -846,9 +449,6 @@ export async function fetchMentorData(\n  _userId: string,\n  userProfile?: User
     if (patch.yearsExperience !== undefined) dbPatch.years_experience = patch.yearsExperience;
     if (patch.skills !== undefined) dbPatch.skills = patch.skills;
     if (patch.bio !== undefined) dbPatch.bio = patch.bio;
-    if (patch.mentoringApproach !== undefined) dbPatch.mentoring_approach = patch.mentoringApproach;
-    if (patch.languages !== undefined) dbPatch.languages = patch.languages;
-    if (patch.location !== undefined) dbPatch.location = patch.location;
     if (patch.availability !== undefined) dbPatch.availability = patch.availability;
     if (patch.offersFreeIntro !== undefined) dbPatch.offers_free_intro = patch.offersFreeIntro;
     if (patch.price !== undefined) dbPatch.price = patch.price;
