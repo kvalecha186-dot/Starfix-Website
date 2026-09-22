@@ -129,12 +129,24 @@ export interface Mentee {
   avatarUrl?: string;
   careerGoal?: string;
   learningLanguage?: string;
+  pathTitle: string;
+  pathId: string;
+  progressPercent: number;
+  currentMilestone: string;
+  nextMilestone: string;
+  allMilestones: MenteeMilestone[];
+  goals: MenteeGoal[];
   totalSessions: number;
   totalHours: number;
   nextSessionDate?: string;
   lastActive?: string;
   status: "Active" | "Completed" | "Pending";
+  needsAttention?: boolean;
+  attentionReason?: string;
   notes?: string;
+  feedbackHistory: MenteeFeedback[];
+  recommendedResources: MenteeResource[];
+  timeline: MenteeTimelineItem[];
 }
 
 export interface MentorSession {
