@@ -125,7 +125,7 @@ export function XpHistoryModal({
             }}
           >
             <div>
-              <div style={{ fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: "0.1em", color: "#C89B2B", fontWeight: 700 }}>
+              <div style={{ fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: "0.1em", color: C.gold, fontWeight: 700 }}>
                 Activity Log
               </div>
               <h2
@@ -225,7 +225,7 @@ export function XpHistoryModal({
                       fontWeight: 700,
                       textTransform: "uppercase",
                       letterSpacing: "0.1em",
-                      color: "#C89B2B",
+                      color: C.gold,
                       marginBottom: 10,
                     }}
                   >
@@ -241,14 +241,14 @@ export function XpHistoryModal({
                           alignItems: "center",
                           justifyContent: "space-between",
                           padding: "12px 0",
-                          borderTop: idx > 0 ? "1px solid #F3E7C8" : "none",
+                          borderTop: idx > 0 ? `1px solid ${C.borderMuted}` : "none",
                         }}
                       >
                         <span
                           style={{
                             fontSize: "0.84rem",
                             fontWeight: 700,
-                            color: entry.amount >= 0 ? "#00B67A" : "#8A6A3B",
+                            color: entry.amount >= 0 ? "#00D68F" : C.textMuted,
                             width: 60,
                             flexShrink: 0,
                           }}
@@ -320,7 +320,7 @@ export function XpHistoryCard() {
               style={{
                 fontSize: "0.68rem",
                 fontWeight: 700,
-                color: "#C89B2B",
+                color: C.gold,
                 background: C.goldLight,
                 border: `1px solid ${C.goldBorder}`,
                 padding: "3px 10px",
@@ -349,7 +349,7 @@ export function XpHistoryCard() {
                     fontWeight: 700,
                     textTransform: "uppercase",
                     letterSpacing: "0.1em",
-                    color: "#C89B2B",
+                    color: C.gold,
                     marginBottom: 10,
                   }}
                 >
@@ -364,21 +364,21 @@ export function XpHistoryCard() {
                         display: "flex",
                         alignItems: "center",
                         padding: "11px 0",
-                        borderTop: idx > 0 ? "1px solid #F3E7C8" : "none",
+                        borderTop: idx > 0 ? `1px solid ${C.borderMuted}` : "none",
                       }}
                     >
                       <span
                         style={{
                           fontSize: "0.86rem",
                           fontWeight: 700,
-                          color: entry.amount >= 0 ? "#00B67A" : "#8A6A3B",
+                          color: entry.amount >= 0 ? "#00D68F" : C.textMuted,
                           width: 64,
                           flexShrink: 0,
                         }}
                       >
                         {entry.amount >= 0 ? `+${entry.amount}` : entry.amount}
                       </span>
-                      <span style={{ flex: 1, fontSize: "0.86rem", color: "#1A1A1A" }}>
+                      <span style={{ flex: 1, fontSize: "0.86rem", color: C.text }}>
                         {entry.label}
                       </span>
                     </div>
@@ -401,13 +401,13 @@ export function XpHistoryCard() {
               alignItems: "center",
               justifyContent: "center",
               gap: 8,
-              background: "#FFFFFF",
-              border: "1px solid #E6C26A",
+              background: C.surfaceAlt,
+              border: `1px solid ${C.goldBorder}`,
               borderRadius: 999,
               padding: "9px 24px",
               fontSize: "0.82rem",
               fontWeight: 500,
-              color: "#C89B2B",
+              color: C.gold,
               fontFamily: "'Inter', sans-serif",
               boxShadow: "0 2px 12px rgba(230, 194, 106, 0.18)",
               cursor: "pointer",

@@ -690,8 +690,8 @@ function GrowthJourneyCard() {
         position: "relative",
         borderRadius: 28,
         padding: "38px 40px 34px",
-        background: `linear-gradient(150deg, ${ID.bg} 0%, #FFF9E8 55%, ${ID.bg} 100%)`,
-        boxShadow: `0 24px 60px -24px ${ID.gold}40, 0 1px 3px rgba(23,23,23,0.04)`,
+        background: `linear-gradient(150deg, ${ID.bg} 0%, #1A1830 55%, ${ID.bg} 100%)`,
+        boxShadow: `0 24px 60px -24px ${ID.gold}40, 0 1px 3px rgba(0,0,0,0.3)`,
       }}
     >
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 18, marginBottom: 28 }}>
@@ -789,7 +789,7 @@ function GrowthJourneyCard() {
           <span style={LABEL}>Weekly Goal</span>
           <span style={{ fontSize: "0.78rem", fontWeight: 700, color: ID.gold }}>78%</span>
         </div>
-        <div style={{ height: 6, borderRadius: 6, background: "#fff", border: `1px solid ${ID.border}`, overflow: "hidden" }}>
+        <div style={{ height: 6, borderRadius: 6, background: C.borderMuted, border: `1px solid ${ID.border}`, overflow: "hidden" }}>
           <motion.div
             initial={{ width: 0 }}
             whileInView={{ width: "78%" }}
@@ -958,7 +958,7 @@ function SavedItemCard({ item, onOpen, onRemove }: { item: SavedItem; onOpen: ()
         <span style={{
           display: "flex", alignItems: "center", gap: 6, fontSize: "0.6rem", fontWeight: 700,
           textTransform: "uppercase", letterSpacing: "0.06em", color: meta.color,
-          background: "#fff", border: `1px solid ${meta.color}30`, padding: "3px 9px", borderRadius: 20,
+          background: ID.bg, border: `1px solid ${meta.color}30`, padding: "3px 9px", borderRadius: 20,
         }}>
           <meta.Icon size={11} color={meta.color} /> {item.type}
         </span>
@@ -978,7 +978,7 @@ function SavedItemCard({ item, onOpen, onRemove }: { item: SavedItem; onOpen: ()
         </motion.button>
         <motion.button
           onClick={onRemove}
-          whileHover={{ backgroundColor: "#fff" }}
+          whileHover={{ backgroundColor: "#1A1830" }}
           style={{
             display: "flex", alignItems: "center", gap: 5, background: "none",
             border: `1px solid ${ID.border}`, borderRadius: 8, padding: "6px 10px",
@@ -1046,7 +1046,7 @@ function SavedItemsSection({ onSelectMentor, onNavigate }: { onSelectMentor?: (i
             {SAVED_FILTERS.map((f) => (
               <button key={f} onClick={() => setFilter(f)} style={{
                 padding: "6px 14px", borderRadius: 999, fontSize: "0.74rem", cursor: "pointer",
-                border: `1px solid ${filter === f ? ID.gold : ID.border}`, background: filter === f ? `${ID.gold}14` : "#fff",
+                border: `1px solid ${filter === f ? ID.gold : ID.border}`, background: filter === f ? `${ID.gold}14` : "#141324",
                 color: filter === f ? ID.gold : C.textMuted, fontWeight: filter === f ? 600 : 500, fontFamily: "'Inter', sans-serif", transition: "all 0.15s",
               }}>
                 {f}

@@ -38,9 +38,9 @@ export const SESSION_LABEL: React.CSSProperties = {
 
 const STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
   scheduled:      { label: "Scheduled",     color: C.textMuted, bg: C.surfaceAlt },
-  starting_soon:  { label: "Starting Soon", color: "#B45309",   bg: "#FEF3C7" },
-  live:           { label: "Live",          color: "#DC2626",   bg: "#FEE2E2" },
-  completed:      { label: "Completed",     color: "#0F9D6C",   bg: "#DCFCE7" },
+  starting_soon:  { label: "Starting Soon", color: "#F0B429",   bg: "rgba(240,180,41,0.14)" },
+  live:           { label: "Live",          color: "#F87171",   bg: "rgba(248,113,113,0.14)" },
+  completed:      { label: "Completed",     color: "#34D399",   bg: "rgba(52,211,153,0.14)" },
 };
 
 function GhostButton({ children, onClick, href, disabled }: { children: React.ReactNode; onClick?: () => void; href?: string; disabled?: boolean }) {
@@ -397,7 +397,7 @@ export function SessionReminderBanner({
         transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
         style={{
           display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap",
-          background: "#FFFBEB", border: `1px solid ${C.goldBorder}`, borderRadius: C.radius,
+          background: C.goldLight, border: `1px solid ${C.goldBorder}`, borderRadius: C.radius,
           padding: isDesktop ? "13px 22px" : "12px 16px", margin: isDesktop ? "0 48px 20px" : "0 16px 16px",
         }}
       >

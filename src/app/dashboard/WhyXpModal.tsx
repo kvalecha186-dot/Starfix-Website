@@ -14,13 +14,13 @@ export function WhyXpButton({ onClick }: { onClick: () => void }) {
         display: "inline-flex",
         alignItems: "center",
         gap: 6,
-        background: "#FFFFFF",
-        border: "1px solid #E6C26A",
+        background: C.surfaceAlt,
+        border: `1px solid ${C.goldBorder}`,
         borderRadius: 999,
         padding: "7px 16px",
         fontSize: "14px",
         fontWeight: 500,
-        color: "#C89B2B",
+        color: C.gold,
         fontFamily: "'Inter', sans-serif",
         boxShadow: "0 2px 10px rgba(230, 194, 106, 0.16)",
         cursor: "pointer",
@@ -28,7 +28,7 @@ export function WhyXpButton({ onClick }: { onClick: () => void }) {
         letterSpacing: "0.01em",
       }}
     >
-      <Sparkles size={14} color="#E6C26A" />
+      <Sparkles size={14} color={C.gold} />
       <span>Why XP?</span>
     </motion.button>
   );
@@ -60,10 +60,10 @@ export function WhyXpModal({ open, onClose }: { open: boolean; onClose: () => vo
           transition={{ duration: 0.22, ease: "easeOut" }}
           onClick={(e) => e.stopPropagation()}
           style={{
-            background: "#FFFFFF",
-            border: "1px solid #E6C26A",
+            background: C.surface,
+            border: `1px solid ${C.goldBorder}`,
             borderRadius: 24,
-            boxShadow: "0 24px 60px rgba(0, 0, 0, 0.22), 0 0 0 1px rgba(230, 194, 106, 0.12)",
+            boxShadow: "0 24px 60px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(212,175,55,0.12)",
             width: "100%",
             maxWidth: 580,
             maxHeight: "88vh",
@@ -77,8 +77,8 @@ export function WhyXpModal({ open, onClose }: { open: boolean; onClose: () => vo
           <div
             style={{
               padding: "24px 32px 18px",
-              borderBottom: "1px solid #F3E7C8",
-              background: "linear-gradient(180deg, #FAF7F0 0%, #FFFFFF 100%)",
+              borderBottom: `1px solid ${C.border}`,
+              background: `linear-gradient(180deg, ${C.surfaceAlt} 0%, ${C.surface} 100%)`,
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
@@ -90,14 +90,14 @@ export function WhyXpModal({ open, onClose }: { open: boolean; onClose: () => vo
                   width: 36,
                   height: 36,
                   borderRadius: "50%",
-                  background: "rgba(230, 194, 106, 0.15)",
-                  border: "1px solid #E6C26A",
+                  background: "rgba(212,175,55,0.15)",
+                  border: `1px solid ${C.goldBorder}`,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
                 }}
               >
-                <Sparkles size={18} color="#C89B2B" />
+                <Sparkles size={18} color={C.gold} />
               </div>
               <h2
                 style={{
@@ -151,8 +151,8 @@ export function WhyXpModal({ open, onClose }: { open: boolean; onClose: () => vo
               </p>
               <div
                 style={{
-                  background: "#FAF7F0",
-                  border: "1px solid #F3E7C8",
+                  background: C.surfaceAlt,
+                  border: `1px solid ${C.border}`,
                   borderRadius: 16,
                   padding: "16px 20px",
                   display: "flex",
@@ -161,23 +161,23 @@ export function WhyXpModal({ open, onClose }: { open: boolean; onClose: () => vo
                 }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <span style={{ color: "#C89B2B", fontWeight: 700 }}>•</span>
+                  <span style={{ color: C.gold, fontWeight: 700 }}>•</span>
                   <span><strong>Consistency</strong> — showing up regularly</span>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <span style={{ color: "#C89B2B", fontWeight: 700 }}>•</span>
+                  <span style={{ color: C.gold, fontWeight: 700 }}>•</span>
                   <span><strong>Depth</strong> — learning beyond the surface</span>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <span style={{ color: "#C89B2B", fontWeight: 700 }}>•</span>
+                  <span style={{ color: C.gold, fontWeight: 700 }}>•</span>
                   <span><strong>Execution</strong> — completing real tasks and projects</span>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <span style={{ color: "#C89B2B", fontWeight: 700 }}>•</span>
+                  <span style={{ color: C.gold, fontWeight: 700 }}>•</span>
                   <span><strong>Mentor feedback</strong> — applying guidance effectively</span>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <span style={{ color: "#C89B2B", fontWeight: 700 }}>•</span>
+                  <span style={{ color: C.gold, fontWeight: 700 }}>•</span>
                   <span><strong>Long-term growth</strong> — improving over time, not overnight</span>
                 </div>
               </div>
@@ -192,7 +192,7 @@ export function WhyXpModal({ open, onClose }: { open: boolean; onClose: () => vo
                 <strong style={{ color: "#00B67A" }}>+ Positive XP</strong> is earned when you complete tasks, finish sessions, submit projects, practice consistently, and receive mentor approval.
               </p>
               <p style={{ margin: 0, color: C.textMuted }}>
-                <strong style={{ color: "#8A6A3B" }}>− Negative XP</strong> appears only when a completed task is intentionally undone or removed.
+                <strong style={{ color: C.textMuted }}>− Negative XP</strong> appears only when a completed task is intentionally undone or removed.
               </p>
             </div>
 
@@ -219,7 +219,7 @@ export function WhyXpModal({ open, onClose }: { open: boolean; onClose: () => vo
             {/* Conclusion */}
             <div
               style={{
-                borderTop: "1px solid #F3E7C8",
+                borderTop: `1px solid ${C.border}`,
                 paddingTop: 16,
                 fontStyle: "italic",
                 color: C.text,
@@ -235,7 +235,7 @@ export function WhyXpModal({ open, onClose }: { open: boolean; onClose: () => vo
           <div
             style={{
               padding: "16px 32px 24px",
-              borderTop: "1px solid #F3E7C8",
+              borderTop: `1px solid ${C.border}`,
               background: C.surface,
               display: "flex",
               justifyContent: "center",
@@ -251,20 +251,20 @@ export function WhyXpModal({ open, onClose }: { open: boolean; onClose: () => vo
                 alignItems: "center",
                 justifyContent: "center",
                 gap: 8,
-                background: "#FFFFFF",
-                border: "1px solid #E6C26A",
+                background: C.surfaceAlt,
+                border: `1px solid ${C.goldBorder}`,
                 borderRadius: 999,
                 padding: "10px 32px",
                 fontSize: "0.86rem",
                 fontWeight: 600,
-                color: "#C89B2B",
+                color: C.gold,
                 fontFamily: "'Inter', sans-serif",
                 boxShadow: "0 2px 12px rgba(230, 194, 106, 0.18)",
                 cursor: "pointer",
                 transition: "all 180ms ease",
               }}
             >
-              <Sparkles size={14} color="#E6C26A" />
+              <Sparkles size={14} color={C.gold} />
               <span>Got it</span>
             </motion.button>
           </div>

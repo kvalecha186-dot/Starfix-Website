@@ -277,8 +277,8 @@ export function XpPointsPage({ onNavigate }: { onNavigate?: (p: DashPage) => voi
                   }}>
                     <div style={{
                       width: 34, height: 34, borderRadius: "50%", flexShrink: 0,
-                      background: achieved ? X.goldLight : "#F4F1E8",
-                      border: `1px solid ${achieved ? X.border : "#E5E0D3"}`,
+                      background: achieved ? X.goldLight : X.surfaceMuted,
+                      border: `1px solid ${achieved ? X.border : X.borderFaint}`,
                       display: "flex", alignItems: "center", justifyContent: "center",
                     }}>
                       <Icon size={15} color={achieved ? X.gold : X.textFaint} />

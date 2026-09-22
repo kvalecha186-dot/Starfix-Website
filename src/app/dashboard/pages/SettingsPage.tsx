@@ -163,7 +163,7 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
       style={{
         width: 44, minWidth: 44, maxWidth: 44, height: 26, minHeight: 26, maxHeight: 26,
         borderRadius: 999, border: "none", cursor: "pointer", outline: "none",
-        background: checked ? "#D4A91F" : "#F4F4F4", position: "relative",
+        background: checked ? "#D4A91F" : "rgba(255,255,255,0.14)", position: "relative",
         flexShrink: 0, flexGrow: 0, display: "inline-block", padding: 0, margin: 0,
         boxSizing: "border-box", overflow: "visible", verticalAlign: "middle",
         transition: "background-color 180ms ease",
@@ -255,7 +255,7 @@ function Select({ value, options, onChange, fullWidth }: { value: string; option
         value={value}
         onChange={(e) => onChange(e.target.value)}
         style={{
-          appearance: "none", background: C.surfaceAlt, border: `1px solid rgba(0,0,0,0.08)`,
+          appearance: "none", background: C.surfaceAlt, border: `1px solid ${C.border}`,
           borderRadius: 12, padding: "0 30px 0 14px", height: 40, boxSizing: "border-box",
           fontSize: "0.82rem", color: C.text, width: fullWidth ? "100%" : undefined,
           fontFamily: "'Inter', sans-serif", cursor: "pointer", outline: "none", minWidth: fullWidth ? undefined : 140,
@@ -810,7 +810,7 @@ export function SettingsPage({ userProfile, onUpdateProfile, onLogout }: {
             whileTap={{ scale: 0.99 }}
             style={{
               width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 9,
-              background: "#fff", border: `1.5px solid ${C.goldBorder}`, borderRadius: 999,
+              background: C.surface, border: `1.5px solid ${C.goldBorder}`, borderRadius: 999,
               padding: "13px 0", fontSize: "0.86rem", fontWeight: 700, color: C.gold,
               cursor: "pointer", fontFamily: "'Inter', sans-serif", transition: "box-shadow 200ms ease",
             }}

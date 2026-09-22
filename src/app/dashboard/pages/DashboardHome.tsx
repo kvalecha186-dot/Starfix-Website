@@ -671,7 +671,7 @@ export function DashboardHome({ onNavigate, userProfile }: { onNavigate?: (p: Da
                       whileHover={{ boxShadow: `0 0 0 4px ${C.goldBorder}` }}
                       whileTap={{ scale: 0.98 }}
                       style={{
-                        width: "100%", background: "#fff", border: `1.5px solid ${C.goldBorder}`,
+                        width: "100%", background: C.surfaceAlt, border: `1.5px solid ${C.goldBorder}`,
                         borderRadius: 999, padding: "10px 0", fontSize: "0.82rem", fontWeight: 700,
                         color: C.text, cursor: "pointer", fontFamily: "'Inter', sans-serif",
                         display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
@@ -762,7 +762,7 @@ export function DashboardHome({ onNavigate, userProfile }: { onNavigate?: (p: Da
               >
                 <div style={{
                   width: 20, height: 20, borderRadius: "50%", flexShrink: 0,
-                  border: `1.5px solid ${t.done ? C.gold : "#D8D8D5"}`,
+                  border: `1.5px solid ${t.done ? C.gold : "rgba(255,255,255,0.18)"}`,
                   background: t.done ? C.gold : "transparent",
                   display: "flex", alignItems: "center", justifyContent: "center",
                   transition: "background 180ms ease, border-color 180ms ease",

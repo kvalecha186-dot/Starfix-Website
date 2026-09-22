@@ -189,9 +189,9 @@ export function BookingDetailsModal({
                       fontWeight: 700,
                       padding: "3px 9px",
                       borderRadius: 20,
-                      background: booking.status === "Booked" ? C.goldLight : booking.status === "Cancelled" ? "#FFF5F5" : "#EAF7EF",
-                      color: booking.status === "Booked" ? C.gold : booking.status === "Cancelled" ? "#E53E3E" : "#1E8449",
-                      border: `1px solid ${booking.status === "Booked" ? C.goldBorder : booking.status === "Cancelled" ? "#FEB2B2" : "#A3E635"}`,
+                      background: booking.status === "Booked" ? C.goldLight : booking.status === "Cancelled" ? "rgba(229,62,62,0.14)" : "rgba(52,211,153,0.14)",
+                      color: booking.status === "Booked" ? C.gold : booking.status === "Cancelled" ? "#F87171" : "#34D399",
+                      border: `1px solid ${booking.status === "Booked" ? C.goldBorder : booking.status === "Cancelled" ? "rgba(229,62,62,0.35)" : "rgba(52,211,153,0.35)"}`,
                     }}
                   >
                     {booking.status}
@@ -222,8 +222,8 @@ export function BookingDetailsModal({
                     style={{
                       width: "100%",
                       background: "transparent",
-                      color: "#E53E3E",
-                      border: "1px solid #FEB2B2",
+                      color: "#F87171",
+                      border: "1px solid rgba(229,62,62,0.35)",
                       borderRadius: 12,
                       padding: "10px 0",
                       fontSize: "0.82rem",
@@ -431,13 +431,13 @@ export function UpcomingSessionsSection({ onNavigate }: { onNavigate?: (p: DashP
                     alignItems: "center",
                     justifyContent: "center",
                     gap: 8,
-                    background: "#FFFFFF",
-                    border: "1px solid #E6C26A",
+                    background: C.surfaceAlt,
+                    border: `1px solid ${C.goldBorder}`,
                     borderRadius: 999,
                     padding: "9px 26px",
                     fontSize: "0.82rem",
                     fontWeight: 500,
-                    color: "#C89B2B",
+                    color: C.gold,
                     fontFamily: "'Inter', 'SF Pro Display', -apple-system, sans-serif",
                     boxShadow: "0 2px 12px rgba(230, 194, 106, 0.18), 0 0 0 1px rgba(230, 194, 106, 0.08)",
                     cursor: "pointer",
@@ -449,7 +449,7 @@ export function UpcomingSessionsSection({ onNavigate }: { onNavigate?: (p: DashP
                   <span style={{ fontSize: "0.88rem", transition: "transform 180ms ease" }}>→</span>
                   <Sparkles
                     size={11}
-                    color="#E6C26A"
+                    color={C.gold}
                     style={{
                       position: "absolute",
                       top: -4,
@@ -536,9 +536,9 @@ export function SessionHistorySection() {
                   fontWeight: 700,
                   padding: "3px 9px",
                   borderRadius: 20,
-                  background: b.status === "Cancelled" ? "#FFF5F5" : "#EAF7EF",
-                  color: b.status === "Cancelled" ? "#E53E3E" : "#1E8449",
-                  border: `1px solid ${b.status === "Cancelled" ? "#FEB2B2" : "#A3E635"}`,
+                  background: b.status === "Cancelled" ? "rgba(229,62,62,0.14)" : "rgba(52,211,153,0.14)",
+                  color: b.status === "Cancelled" ? "#F87171" : "#34D399",
+                  border: `1px solid ${b.status === "Cancelled" ? "rgba(229,62,62,0.35)" : "rgba(52,211,153,0.35)"}`,
                 }}
               >
                 {b.status}
