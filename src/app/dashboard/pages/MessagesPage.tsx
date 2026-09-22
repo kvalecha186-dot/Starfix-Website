@@ -5,11 +5,12 @@ import {
   TrendingUp, FileSearch, ClipboardList, BookOpen, MoreVertical, ArrowLeft,
 } from "lucide-react";
 import { C } from "../dashColors";
+import { supabase } from "../../lib/supabase";
 import type { DashPage } from "../DashboardLayout";
 import { MENTORS, type Mentor } from "./MentorsPage";
 import { PATHS } from "./GoalsPage";
 import {
-  getConversations, getConversation, ensureConversation, sendMessage,
+  getConversations, getConversation, ensureConversation, sendMessage, hydrateMessages, startMessageRealtime,
   markDelivered, markRead, archiveConversation, QUICK_CHIPS,
   MESSAGES_CHANGED_EVENT, TYPING_CHANGED_EVENT, isMentorTyping, type Conversation,
 } from "../../lib/messages";
@@ -362,6 +363,19 @@ export function MessagesPage({
     document.addEventListener("mousedown", onDocClick);
     return () => document.removeEventListener("mousedown", onDocClick);
   }, [menuOpen]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const auth = await supabase.auth.getUser();
+      const uid = auth.data.user?.id;
+      if (!uid || cancelled) return;
+      await hydrateMessages(uid);
+      startMessageRealtime(uid);
+      refresh();
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     window.addEventListener(MESSAGES_CHANGED_EVENT, refresh);
