@@ -86,10 +86,13 @@ async function persistBooking(booking: Booking): Promise<void> {
   const { data: sessionType } = await supabase.from("session_types").select("id").eq("mentor_id", mentor.id).eq("title", booking.sessionType).maybeSingle();
   const start = buildScheduledStart(booking.bookingDate, booking.bookingTime);
   const end = start ? new Date(start.getTime() + parseDurationMinutes(booking.duration) * 60000) : null;
+  const availability = start
+    ? (await supabase.from("mentor_availability").select("id,status").eq("mentor_id", mentor.id).eq("start_at", start.toISOString()).maybeSingle()).data
+    : null;
   const { data, error } = await supabase.rpc("create_student_booking", {
     p_mentor_id: mentor.id,
     p_session_type_id: sessionType?.id ?? null,
-    p_availability_id: null,
+    p_availability_id: availability?.status === "available" ? availability.id : null,
     p_scheduled_start: start?.toISOString() ?? null,
     p_scheduled_end: end?.toISOString() ?? null,
     p_amount: parseMoney(booking.price), p_currency: "INR", p_external_id: booking.id,
