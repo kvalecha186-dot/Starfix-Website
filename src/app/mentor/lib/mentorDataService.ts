@@ -541,6 +541,44 @@ export async function createMentorSessionInDb(mentorId: string, legacyId: number
   if (r.error || !r.data) return null; return { ...session, id: String(r.data.id), createdAt: r.data.created_at };
 }
 
+const SCHEDULE_STORAGE_KEY = "starfix:mentor_schedule";
+const BLOCKED_STORAGE_KEY = "starfix:mentor_blocked_dates";
+
+export function getStoredWeeklySchedule(): WeeklyScheduleDay[] {
+  if (typeof window !== "undefined") {
+    try {
+      const raw = localStorage.getItem(SCHEDULE_STORAGE_KEY);
+      if (raw) return JSON.parse(raw);
+    } catch {}
+  }
+  return [
+    { day: "Monday", enabled: true, startTime: "17:00", endTime: "21:00" },
+    { day: "Tuesday", enabled: true, startTime: "17:00", endTime: "21:00" },
+    { day: "Wednesday", enabled: true, startTime: "17:00", endTime: "21:00" },
+    { day: "Thursday", enabled: true, startTime: "17:00", endTime: "21:00" },
+    { day: "Friday", enabled: false, startTime: "17:00", endTime: "21:00" },
+    { day: "Saturday", enabled: true, startTime: "11:00", endTime: "16:00" },
+    { day: "Sunday", enabled: false, startTime: "11:00", endTime: "16:00" },
+  ];
+}
+
+export function saveWeeklySchedule(schedule: WeeklyScheduleDay[]): void {
+  if (typeof window === "undefined") return;
+  try { localStorage.setItem(SCHEDULE_STORAGE_KEY, JSON.stringify(schedule)); } catch {}
+}
+
+export function getStoredBlockedDates(): BlockedDate[] {
+  if (typeof window !== "undefined") {
+    try { return JSON.parse(localStorage.getItem(BLOCKED_STORAGE_KEY) || "[]"); } catch {}
+  }
+  return [];
+}
+
+export function saveBlockedDates(dates: BlockedDate[]): void {
+  if (typeof window === "undefined") return;
+  try { localStorage.setItem(BLOCKED_STORAGE_KEY, JSON.stringify(dates)); } catch {}
+}
+
 export async function fetchMentorScheduleFromDb(mentorId: string): Promise<{ schedule: WeeklyScheduleDay[]; blocked: BlockedDate[] }> {
   const rules = (await supabase.from("mentor_schedule_rules").select("day_of_week,enabled,start_time,end_time").eq("mentor_id", mentorId).order("day_of_week")).data || [];
   const dayNames: WeeklyScheduleDay["day"][] = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
