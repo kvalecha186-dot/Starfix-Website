@@ -46,6 +46,10 @@ import {
   saveWeeklySchedule,
   getStoredBlockedDates,
   saveBlockedDates,
+  fetchMentorScheduleFromDb,
+  saveMentorScheduleToDb,
+  addMentorBlockedDateToDb,
+  removeMentorBlockedDateFromDb,
 } from "../lib/mentorDataService";
 import { toast } from "sonner";
 
@@ -110,7 +114,14 @@ export function MentorProfilePage({
   useEffect(() => {
     setWeeklySchedule(getStoredWeeklySchedule());
     setBlockedDates(getStoredBlockedDates());
-  }, []);
+    void (async () => {
+      const remote = await fetchMentorScheduleFromDb(mentor.id);
+      setWeeklySchedule(remote.schedule);
+      setBlockedDates(remote.blocked);
+      saveWeeklySchedule(remote.schedule);
+      saveBlockedDates(remote.blocked);
+    })();
+  }, [mentor.id]);
 
   // Unsaved-changes detection — compares the live form state against the
   // last-persisted `mentor` prop, so the Save button and header status can
@@ -140,6 +151,7 @@ export function MentorProfilePage({
     );
     setWeeklySchedule(updated);
     saveWeeklySchedule(updated);
+    void saveMentorScheduleToDb(mentor.id, updated);
   };
 
   const handleTimeChange = (dayName: string, field: "startTime" | "endTime", value: string) => {
@@ -148,6 +160,7 @@ export function MentorProfilePage({
     );
     setWeeklySchedule(updated);
     saveWeeklySchedule(updated);
+    void saveMentorScheduleToDb(mentor.id, updated);
   };
 
   const handleAddBlockedDate = (e: React.FormEvent) => {
@@ -161,6 +174,7 @@ export function MentorProfilePage({
     const updated = [...blockedDates, newEntry];
     setBlockedDates(updated);
     saveBlockedDates(updated);
+    void addMentorBlockedDateToDb(mentor.id, newEntry);
     setNewBlockedDate("");
     setNewBlockedReason("");
     toast.success("Added blocked date.");
@@ -170,6 +184,8 @@ export function MentorProfilePage({
     const updated = blockedDates.filter((b) => b.id !== id);
     setBlockedDates(updated);
     saveBlockedDates(updated);
+    const removed = blockedDates.find((b) => b.id === id);
+    if (removed) void removeMentorBlockedDateFromDb(mentor.id, removed.id, removed.date);
     toast.info("Removed blocked date.");
   };
 
