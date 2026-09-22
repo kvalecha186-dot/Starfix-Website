@@ -629,13 +629,18 @@ export async function saveMentorScheduleToDb(mentorId: string, schedule: WeeklyS
 
 export async function addMentorBlockedDateToDb(mentorId: string, entry: BlockedDate): Promise<boolean> {
   const r = await supabase.from("mentor_blocked_dates").upsert({ mentor_id: mentorId, blocked_date: entry.date, reason: entry.reason }, { onConflict: "mentor_id,blocked_date" });
-  return !r.error;
+  if (r.error) return false;
+  await supabase.from("mentor_availability").update({ status: "blocked" }).eq("mentor_id", mentorId).gte("start_at", entry.date + "T00:00:00").lt("start_at", entry.date + "T23:59:59.999");
+  return true;
 }
 
 export async function removeMentorBlockedDateFromDb(mentorId: string, id: string, date: string): Promise<boolean> {
   const q = supabase.from("mentor_blocked_dates").delete().eq("mentor_id", mentorId);
   const r = id.includes("-") ? await q.eq("id", id) : await q.eq("blocked_date", date);
-  return !r.error;
+  if (r.error) return false;
+  const schedule = getStoredWeeklySchedule();
+  await materializeMentorAvailability(mentorId, schedule);
+  return true;
 }
 
 export async function saveMenteeMilestonesToDb(studentId: string, pathId: string, milestones: MenteeMilestone[]): Promise<boolean> {
