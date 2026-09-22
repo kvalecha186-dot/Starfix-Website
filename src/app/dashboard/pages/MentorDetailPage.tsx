@@ -18,6 +18,7 @@ import { getAllEnrollments, ENROLLMENTS_CHANGED_EVENT } from "../../lib/pathProg
 import { PATHS } from "./GoalsPage";
 import { createBooking, isSessionBooked, BOOKINGS_CHANGED_EVENT } from "../../lib/bookings";
 import { CheckoutModal } from "../CheckoutModal";
+import { supabase } from "../../lib/supabase";
 
 /* ─── Small building blocks ───────────────────────── */
 
@@ -81,12 +82,46 @@ export function MentorDetailPage({
 }) {
   const { isDesktop } = useViewport();
   const routerNavigate = useNavigate();
-  const mentor = MENTORS.find((m) => m.id === mentorId);
+  const staticMentor = MENTORS.find((m) => m.id === mentorId);
   const detail = MENTOR_DETAILS[mentorId];
   const extra = MENTOR_EXTRA[mentorId];
+  const [dbMentor, setDbMentor] = useState<any>(null);
+  const [dbSessions, setDbSessions] = useState<any[]>([]);
+  const [dbAvailability, setDbAvailability] = useState<any[]>([]);
   const [openFaq, setOpenFaq] = useState<number | null>(0);
   const [selectedSession, setSelectedSession] = useState(0);
   const [showCheckout, setShowCheckout] = useState(false);
+  useEffect(() => {
+    void (async () => {
+      const mentorRow = (await supabase.from("mentors").select("*").eq("legacy_id", mentorId).maybeSingle()).data;
+      if (!mentorRow) return;
+      setDbMentor(mentorRow);
+      const sessions = (await supabase.from("session_types").select("id,title,description,duration_minutes,price,currency,active").eq("mentor_id", mentorRow.id).eq("active", true).order("price")).data || [];
+      setDbSessions(sessions);
+      const availability = (await supabase.from("mentor_availability").select("id,start_at,end_at,status").eq("mentor_id", mentorRow.id).gte("start_at", new Date().toISOString()).order("start_at").limit(30)).data || [];
+      setDbAvailability(availability);
+    })();
+  }, [mentorId]);
+  const mentor = dbMentor ? {
+    ...(staticMentor || {}),
+    id: mentorId,
+    name: dbMentor.name || staticMentor?.name,
+    initials: dbMentor.initials || staticMentor?.initials || "ME",
+    color: dbMentor.color || staticMentor?.color || C.gold,
+    title: dbMentor.headline || staticMentor?.title || "Starfix Mentor",
+    company: dbMentor.company || staticMentor?.company || "",
+    category: dbMentor.category || staticMentor?.category || "Coding",
+    rating: Number(dbMentor.rating) || 0,
+    students: Number(dbMentor.students_count) || 0,
+    price: dbMentor.price || staticMentor?.price || "Free",
+    free: !!dbMentor.free,
+    availability: dbMentor.availability || staticMentor?.availability || "Today",
+    skills: Array.isArray(dbMentor.skills) ? dbMentor.skills : (staticMentor?.skills || []),
+  } : staticMentor;
+  const sessionList = dbSessions.length
+    ? dbSessions.map((s: any) => ({ name: s.title, duration: (s.duration_minutes || 45) + " min", price: Number(s.price) === 0 ? "Free" : "₹" + Number(s.price).toLocaleString("en-IN"), includes: s.description ? [s.description] : [], popular: false }))
+    : (extra?.sessions || []);
+
 
   // The learner's own saved session notes with this mentor — read live
   // from the same enrollment store the Workspace's Notes card (Save
@@ -110,7 +145,7 @@ export function MentorDetailPage({
   const myEnrollment = getAllEnrollments().find((e) => e.mentorId === mentorId);
   const myPath = myEnrollment ? PATHS.find((p) => p.id === myEnrollment.pathId) : undefined;
 
-  const currentSess = extra?.sessions[selectedSession] ?? extra?.sessions[0];
+  const currentSess = sessionList[selectedSession] ?? sessionList[0];
   const isBooked = mentor && currentSess ? isSessionBooked(mentor.id, currentSess.name) : false;
 
   const handleBookSession = () => {
@@ -282,7 +317,7 @@ export function MentorDetailPage({
           <section id="sessions" style={{ marginBottom: 44 }}>
             <SectionTitle sub="Choose the session that fits where you are right now.">{config.sessionLabel}</SectionTitle>
             <div style={{ display: "grid", gridTemplateColumns: isDesktop ? "1fr 1fr" : "1fr", gap: 14 }}>
-              {extra.sessions.map((s, i) => {
+              {sessionList.map((s, i) => {
                 const active = i === selectedSession;
                 const activeBooked = isSessionBooked(mentor.id, s.name);
                 return (
