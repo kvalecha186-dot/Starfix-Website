@@ -793,6 +793,10 @@ export async function updateMentorProfileInDb(
     if (patch.linkedinUrl !== undefined) dbPatch.linkedin_url = patch.linkedinUrl;
 
     const { error } = await supabase.from("mentors").update(dbPatch).eq("id", mentorId);
+    if (patch.price !== undefined) {
+      const numericPrice = Number(String(patch.price).replace(/[^0-9.]/g, "")) || 0;
+      await supabase.from("session_types").update({ price: numericPrice }).eq("mentor_id", mentorId);
+    }
     if (error) {
       console.warn("Could not update mentor in Supabase:", error.message);
     }
