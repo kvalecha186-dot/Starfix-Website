@@ -551,6 +551,7 @@ export function MentorLayout({ userProfile, onLogout, onUpdateProfile }: Props) 
                 <MentorMessagesPage
                   mentorId={mentorObj.id}
                   mentees={mentees}
+                  onUpdateMentee={handleUpdateMentee}
                   openMenteeId={openMenteeMessageId}
                   onOpenScheduleModal={handleScheduleWithMentee}
                 />
