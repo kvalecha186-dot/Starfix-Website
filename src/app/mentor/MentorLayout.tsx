@@ -526,6 +526,7 @@ export function MentorLayout({ userProfile, onLogout, onUpdateProfile }: Props) 
               {currentTab === "mentees" && (
                 <MentorMenteesPage
                   mentees={mentees}
+                  onUpdateMentee={handleUpdateMentee}
                   onMessageMentee={handleMessageMentee}
                   onScheduleWithMentee={handleScheduleWithMentee}
                 />
@@ -537,6 +538,7 @@ export function MentorLayout({ userProfile, onLogout, onUpdateProfile }: Props) 
                   mentees={mentees}
                   mentorName={mentorObj.name}
                   onSessionStatusChange={handleSessionStatusChange}
+                  onUpdateSession={handleUpdateSession}
                   onAddSession={handleAddSession}
                   onMessageMentee={handleMessageMentee}
                   isScheduleModalOpen={isScheduleModalOpen}
