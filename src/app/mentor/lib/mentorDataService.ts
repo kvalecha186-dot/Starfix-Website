@@ -142,6 +142,10 @@ export interface MentorSession {
   status: "Booked" | "Completed" | "Cancelled";
   meetingUrl?: string;
   notes?: string;
+  prepNotes?: string;
+  discussionRecap?: string;
+  actionItems?: string[];
+  needsFollowup?: boolean;
   createdAt: string;
 }
 
