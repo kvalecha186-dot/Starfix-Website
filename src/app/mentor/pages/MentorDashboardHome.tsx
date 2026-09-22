@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { M } from "../mentorColors";
 import { useViewport } from "../../lib/useViewport";
+import { MentorAvatar } from "../MentorAvatar";
 import type {
   MentorProfileData,
   Mentee,
@@ -116,7 +117,9 @@ export function MentorDashboardHome({
             gap: 20,
           }}
         >
-          <div>
+          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+            <MentorAvatar name={mentor.name} avatarUrl={mentor.avatarUrl} size={isCompact ? 52 : 60} glow />
+            <div>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, flexWrap: "wrap" }}>
               <span
                 style={{
@@ -195,6 +198,7 @@ export function MentorDashboardHome({
               {mentor.headline}
               {mentor.company ? ` · ${mentor.company}` : ""}
             </p>
+            </div>
           </div>
 
           {/* Quick Action Buttons */}

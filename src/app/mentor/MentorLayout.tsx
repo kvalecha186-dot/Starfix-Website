@@ -14,11 +14,13 @@ import {
 } from "lucide-react";
 import { M } from "./mentorColors";
 import { useViewport } from "../lib/useViewport";
+import { MentorAvatar } from "./MentorAvatar";
 import type { UserProfile } from "../types";
 import {
   fetchMentorData,
   updateMentorProfileInDb,
   updateSessionStatusInDb,
+  saveProfileExtras,
   type MentorProfileData,
   type Mentee,
   type MentorSession,
@@ -140,12 +142,27 @@ export function MentorLayout({ userProfile, onLogout, onUpdateProfile }: Props) 
     setSessions((prev) => [sessionObj, ...prev]);
   };
 
-  // Update mentor profile
+  // Update mentor profile. Splits the patch three ways: known `mentors`
+  // table columns go to Supabase; the mentor-specific fields that aren't
+  // (yet) real columns — mentoringStyle, sessionTypes, targetLevel,
+  // areasCanHelp — persist to localStorage via saveProfileExtras so they
+  // survive a reload without risking a write against a column that may
+  // not exist; avatarUrl is really userProfile.avatarDataUrl, the same
+  // photo-upload mechanism Settings already uses on the student side, so
+  // it bubbles up through the top-level onUpdateProfile instead.
   const handleUpdateMentorProfile = async (patch: Partial<MentorProfileData>): Promise<boolean> => {
     if (!mentor) return false;
     const updated = { ...mentor, ...patch };
     setMentor(updated);
-    const ok = await updateMentorProfileInDb(mentor.id, patch);
+
+    const { mentoringStyle, sessionTypes, targetLevel, areasCanHelp, avatarUrl, ...dbPatch } = patch;
+    if (mentoringStyle !== undefined || sessionTypes !== undefined || targetLevel !== undefined || areasCanHelp !== undefined) {
+      saveProfileExtras({ mentoringStyle, sessionTypes, targetLevel, areasCanHelp });
+    }
+    if (avatarUrl !== undefined && onUpdateProfile) {
+      onUpdateProfile({ avatarDataUrl: avatarUrl });
+    }
+    const ok = await updateMentorProfileInDb(mentor.id, dbPatch);
     if (patch.name && onUpdateProfile) {
       onUpdateProfile({ name: patch.name });
     }
@@ -280,28 +297,7 @@ export function MentorLayout({ userProfile, onLogout, onUpdateProfile }: Props) 
       <div style={{ padding: "16px 14px", borderTop: `1px solid ${M.border}`, background: M.surfaceAlt }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-            <div
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: "50%",
-                background: M.goldBg,
-                border: `1px solid ${M.goldBorder}`,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontWeight: 700,
-                fontSize: "0.84rem",
-                color: M.gold,
-                flexShrink: 0,
-              }}
-            >
-              {mentorObj.name
-                .split(" ")
-                .map((w) => w[0])
-                .slice(0, 2)
-                .join("")}
-            </div>
+            <MentorAvatar name={mentorObj.name} avatarUrl={mentorObj.avatarUrl} size={36} />
             <div style={{ minWidth: 0 }}>
               <div style={{ fontWeight: 600, fontSize: "0.85rem", color: M.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                 {mentorObj.name}
@@ -527,6 +523,8 @@ export function MentorLayout({ userProfile, onLogout, onUpdateProfile }: Props) 
               {currentTab === "profile" && (
                 <MentorProfilePage
                   mentor={mentorObj}
+                  mentees={mentees}
+                  sessions={sessions}
                   reviews={reviews}
                   earnings={earnings || { totalEarned: 0, pendingPayout: 0, completedSessionsCount: 0, avgPerSession: 0, currency: "INR", payoutMethod: "", history: [] }}
                   onUpdateProfile={handleUpdateMentorProfile}

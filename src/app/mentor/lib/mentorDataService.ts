@@ -6,6 +6,7 @@ export interface MentorProfileData {
   legacyId?: number;
   name: string;
   email: string;
+  avatarUrl?: string;
   headline: string;
   company: string;
   category: string;
@@ -15,6 +16,10 @@ export interface MentorProfileData {
   skills: string[];
   bio: string;
   mentoringApproach?: string;
+  mentoringStyle?: string[];
+  sessionTypes?: string[];
+  targetLevel?: string;
+  areasCanHelp?: string[];
   languages?: string[];
   location?: string;
   availability: string;
@@ -23,6 +28,7 @@ export interface MentorProfileData {
   price: string;
   sessionDuration: string;
   linkedinUrl?: string;
+  mentorSince?: string;
 }
 
 export interface MenteeMilestone {
@@ -180,6 +186,64 @@ const STORAGE_BLOCKED_DATES_KEY = "starfix:mentor_blocked_dates";
 const STORAGE_REQUESTS_KEY = "starfix:mentor_requests";
 const STORAGE_EXTRA_MENTEES_KEY = "starfix:mentor_mentees_extra";
 const STORAGE_SESSIONS_KEY = "starfix:mentor_sessions_extra";
+const STORAGE_PROFILE_EXTRAS_KEY = "starfix:mentor_profile_extras";
+const STORAGE_MENTOR_SINCE_KEY = "starfix:mentor_since";
+
+/* ─── Mentor-specific profile fields not (yet) columns in the `mentors`
+   table — mentoring style, session types, target level, "areas I can
+   help with". Persisted locally so editing them is fully functional and
+   durable across refreshes without risking a write against a DB column
+   that may not exist. Merged onto MentorProfileData on every load. ──── */
+
+export interface MentorProfileExtras {
+  mentoringStyle: string[];
+  sessionTypes: string[];
+  targetLevel: string;
+  areasCanHelp: string[];
+}
+
+const DEFAULT_PROFILE_EXTRAS: MentorProfileExtras = {
+  mentoringStyle: [],
+  sessionTypes: [],
+  targetLevel: "",
+  areasCanHelp: [],
+};
+
+export function getStoredProfileExtras(): MentorProfileExtras {
+  if (typeof window === "undefined") return DEFAULT_PROFILE_EXTRAS;
+  try {
+    const raw = localStorage.getItem(STORAGE_PROFILE_EXTRAS_KEY);
+    return raw ? { ...DEFAULT_PROFILE_EXTRAS, ...JSON.parse(raw) } : DEFAULT_PROFILE_EXTRAS;
+  } catch {
+    return DEFAULT_PROFILE_EXTRAS;
+  }
+}
+
+export function saveProfileExtras(extras: Partial<MentorProfileExtras>): void {
+  if (typeof window === "undefined") return;
+  try {
+    const merged = { ...getStoredProfileExtras(), ...extras };
+    localStorage.setItem(STORAGE_PROFILE_EXTRAS_KEY, JSON.stringify(merged));
+  } catch {}
+}
+
+/* "Mentoring Since" — genuinely derived from the first time this browser
+   ever loaded Mentor Mode, not an invented number. Set once, read forever
+   after. If a real backend column (mentor_since / created_at) is ever
+   present on the mentors row, that value wins instead — see
+   fetchMentorData, which merges DB data over this local fallback. */
+export function getOrInitMentorSince(): string {
+  if (typeof window === "undefined") return new Date().toISOString();
+  try {
+    const existing = localStorage.getItem(STORAGE_MENTOR_SINCE_KEY);
+    if (existing) return existing;
+    const now = new Date().toISOString();
+    localStorage.setItem(STORAGE_MENTOR_SINCE_KEY, now);
+    return now;
+  } catch {
+    return new Date().toISOString();
+  }
+}
 
 /* ─── Mentees Local Persistence ─────────────────────────────────────────── */
 
@@ -303,10 +367,12 @@ export function saveBlockedDates(dates: BlockedDate[]): void {
 /* ─── Default Sample Data ─────────────────────────────────────────────────── */
 
 export function getDefaultMentorData(userProfile?: UserProfile | null): MentorProfileData {
+  const extras = getStoredProfileExtras();
   return {
     id: "mentor_current",
     name: userProfile?.name || "Kunal Valecha",
     email: userProfile?.email || "mentor@starfix.com",
+    avatarUrl: userProfile?.avatarDataUrl || undefined,
     headline: userProfile?.careerGoal || "Senior Software Engineer & Tech Mentor",
     company: "Starfix Partner",
     category: "Coding",
@@ -316,6 +382,10 @@ export function getDefaultMentorData(userProfile?: UserProfile | null): MentorPr
     skills: ["System Design", "Distributed Systems", "TypeScript", "React", "Cloud Architecture"],
     bio: "Passionate about mentoring high-potential engineers through complex distributed system design, high-scale API architecture, and senior career placement.",
     mentoringApproach: "I focus on first-principles system thinking, pragmatic code reviews, and structured mock interviews with actionable written feedback.",
+    mentoringStyle: extras.mentoringStyle,
+    sessionTypes: extras.sessionTypes,
+    targetLevel: extras.targetLevel,
+    areasCanHelp: extras.areasCanHelp,
     languages: ["English", "Hindi"],
     location: "Bangalore, India",
     availability: "Available",
@@ -323,6 +393,7 @@ export function getDefaultMentorData(userProfile?: UserProfile | null): MentorPr
     offersFreeIntro: true,
     price: "₹2,500",
     sessionDuration: "45 min",
+    mentorSince: getOrInitMentorSince(),
   };
 }
 
@@ -790,11 +861,16 @@ export async function fetchMentorData(
       .maybeSingle();
 
     if (mentorRow) {
+      const extras = getStoredProfileExtras();
       mentorData = {
         id: mentorRow.id,
         legacyId: mentorRow.legacy_id ?? undefined,
         name: mentorRow.name || mentorData.name,
         email: mentorRow.email || mentorData.email,
+        // avatar_url / mentor_since aren't guaranteed columns on this row —
+        // selecting "*" simply omits them if absent, so reading them here
+        // is safe either way. Real DB values win over the local fallback.
+        avatarUrl: mentorRow.avatar_url || mentorData.avatarUrl,
         headline: mentorRow.headline || mentorData.headline,
         company: mentorRow.company || mentorData.company,
         category: mentorRow.category || mentorData.category,
@@ -804,6 +880,10 @@ export async function fetchMentorData(
         skills: Array.isArray(mentorRow.skills) && mentorRow.skills.length ? mentorRow.skills : mentorData.skills,
         bio: mentorRow.bio || mentorData.bio,
         mentoringApproach: mentorRow.mentoring_approach || mentorData.mentoringApproach,
+        mentoringStyle: extras.mentoringStyle,
+        sessionTypes: extras.sessionTypes,
+        targetLevel: extras.targetLevel,
+        areasCanHelp: extras.areasCanHelp,
         languages: mentorRow.languages || mentorData.languages,
         location: mentorRow.location || mentorData.location,
         availability: mentorRow.availability || "Available",
@@ -812,6 +892,7 @@ export async function fetchMentorData(
         price: mentorRow.price || mentorData.price,
         sessionDuration: "45 min",
         linkedinUrl: mentorRow.linkedin_url || undefined,
+        mentorSince: mentorRow.mentor_since || mentorRow.created_at || mentorData.mentorSince,
       };
 
       const orFilter = mentorRow.legacy_id

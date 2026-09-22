@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import {
   User,
   Clock,
@@ -19,13 +19,25 @@ import {
   X,
   Globe,
   Award,
+  Camera,
+  IdCard,
+  Layers,
+  Compass,
+  BookOpen,
+  Users,
+  GraduationCap,
+  Eye,
+  AlertCircle,
 } from "lucide-react";
 import { M } from "../mentorColors";
 import { useViewport } from "../../lib/useViewport";
+import { MentorAvatar } from "../MentorAvatar";
 import type {
   MentorProfileData,
   MentorReview,
   MentorEarnings,
+  Mentee,
+  MentorSession,
   WeeklyScheduleDay,
   BlockedDate,
 } from "../lib/mentorDataService";
@@ -39,14 +51,22 @@ import { toast } from "sonner";
 
 interface Props {
   mentor: MentorProfileData;
+  mentees: Mentee[];
+  sessions: MentorSession[];
   reviews: MentorReview[];
   earnings: MentorEarnings;
   onUpdateProfile: (patch: Partial<MentorProfileData>) => Promise<boolean>;
   onToggleAvailability: () => void;
 }
 
+const MENTORING_STYLE_OPTIONS = ["Structured & Curriculum-led", "Socratic / Question-led", "Hands-on Pair Programming", "Mock Interview Drills", "Career Strategy & Advocacy"];
+const SESSION_TYPE_OPTIONS = ["1:1 Deep Dive", "Code / Design Review", "Mock Interview", "Career Strategy", "Free Intro Call"];
+const TARGET_LEVEL_OPTIONS = ["Beginner", "Intermediate", "Advanced", "All Levels"];
+
 export function MentorProfilePage({
   mentor,
+  mentees,
+  sessions,
   reviews,
   earnings,
   onUpdateProfile,
@@ -54,6 +74,7 @@ export function MentorProfilePage({
 }: Props) {
   const { isCompact, isMobile } = useViewport();
   const [subTab, setSubTab] = useState<"profile" | "availability" | "earnings" | "reviews">("profile");
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Local form state for Profile
   const [name, setName] = useState(mentor.name);
@@ -72,7 +93,13 @@ export function MentorProfilePage({
   const [skills, setSkills] = useState<string[]>(mentor.skills);
   const [newSkillInput, setNewSkillInput] = useState("");
   const [linkedinUrl, setLinkedinUrl] = useState(mentor.linkedinUrl || "");
+  const [areasCanHelp, setAreasCanHelp] = useState<string[]>(mentor.areasCanHelp || []);
+  const [newAreaInput, setNewAreaInput] = useState("");
+  const [mentoringStyle, setMentoringStyle] = useState<string[]>(mentor.mentoringStyle || []);
+  const [sessionTypes, setSessionTypes] = useState<string[]>(mentor.sessionTypes || []);
+  const [targetLevel, setTargetLevel] = useState(mentor.targetLevel || "");
   const [saving, setSaving] = useState(false);
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
 
   // Weekly Schedule & Blocked Dates State
   const [weeklySchedule, setWeeklySchedule] = useState<WeeklyScheduleDay[]>([]);
@@ -84,6 +111,28 @@ export function MentorProfilePage({
     setWeeklySchedule(getStoredWeeklySchedule());
     setBlockedDates(getStoredBlockedDates());
   }, []);
+
+  // Unsaved-changes detection — compares the live form state against the
+  // last-persisted `mentor` prop, so the Save button and header status can
+  // honestly reflect whether there's anything to protect.
+  const isDirty = useMemo(() => {
+    return (
+      name !== mentor.name ||
+      headline !== mentor.headline ||
+      company !== mentor.company ||
+      category !== mentor.category ||
+      yearsExperience !== mentor.yearsExperience ||
+      bio !== mentor.bio ||
+      mentoringApproach !== (mentor.mentoringApproach || "") ||
+      JSON.stringify(languages) !== JSON.stringify(mentor.languages || []) ||
+      JSON.stringify(skills) !== JSON.stringify(mentor.skills) ||
+      linkedinUrl !== (mentor.linkedinUrl || "") ||
+      JSON.stringify(areasCanHelp) !== JSON.stringify(mentor.areasCanHelp || []) ||
+      JSON.stringify(mentoringStyle) !== JSON.stringify(mentor.mentoringStyle || []) ||
+      JSON.stringify(sessionTypes) !== JSON.stringify(mentor.sessionTypes || []) ||
+      targetLevel !== (mentor.targetLevel || "")
+    );
+  }, [name, headline, company, category, yearsExperience, bio, mentoringApproach, languages, skills, linkedinUrl, areasCanHelp, mentoringStyle, sessionTypes, targetLevel, mentor]);
 
   const handleToggleDay = (dayName: string) => {
     const updated = weeklySchedule.map((d) =>
@@ -148,6 +197,39 @@ export function MentorProfilePage({
     setLanguages(languages.filter((l) => l !== lang));
   };
 
+  const handleAddArea = () => {
+    const trimmed = newAreaInput.trim();
+    if (trimmed && !areasCanHelp.includes(trimmed)) {
+      setAreasCanHelp([...areasCanHelp, trimmed]);
+      setNewAreaInput("");
+    }
+  };
+  const handleRemoveArea = (area: string) => setAreasCanHelp(areasCanHelp.filter((a) => a !== area));
+
+  const toggleMentoringStyle = (style: string) => {
+    setMentoringStyle((prev) => (prev.includes(style) ? prev.filter((s) => s !== style) : [...prev, style]));
+  };
+  const toggleSessionType = (type: string) => {
+    setSessionTypes((prev) => (prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type]));
+  };
+
+  const handleAvatarFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please choose an image file.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const dataUrl = reader.result as string;
+      const ok = await onUpdateProfile({ avatarUrl: dataUrl });
+      if (ok) toast.success("Profile photo updated.");
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
+
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
@@ -159,6 +241,10 @@ export function MentorProfilePage({
       yearsExperience: Number(yearsExperience) || 5,
       bio,
       mentoringApproach,
+      mentoringStyle,
+      sessionTypes,
+      targetLevel,
+      areasCanHelp,
       languages,
       price,
       offersFreeIntro,
@@ -167,62 +253,157 @@ export function MentorProfilePage({
     });
     setSaving(false);
     if (success) {
+      setLastSavedAt(new Date());
       toast.success("Mentor profile & availability updated successfully.");
     } else {
       toast.error("Failed to update profile. Please try again.");
     }
   };
 
+  // Real, non-fabricated summary metrics — derived from the mentees and
+  // sessions this mentor actually has, never invented placeholder numbers.
+  const activeMenteesCount = mentees.filter((m) => m.status === "Active").length;
+  const sessionsCompletedCount = sessions.filter((s) => s.status === "Completed").length;
+  const mentoringSinceLabel = mentor.mentorSince
+    ? new Date(mentor.mentorSince).toLocaleDateString("en-US", { month: "short", year: "numeric" })
+    : "—";
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-      {/* ── Page Header ── */}
+      {/* ── Identity Header — premium mentor profile hero ── */}
       <div
         style={{
-          display: "flex",
-          flexDirection: isCompact ? "column" : "row",
-          alignItems: isCompact ? "flex-start" : "center",
-          justifyContent: "space-between",
-          gap: 16,
+          background: `linear-gradient(135deg, ${M.surface} 0%, rgba(20,19,36,0.75) 100%)`,
+          border: `1px solid ${M.border}`,
+          borderRadius: M.radiusLg,
+          padding: isCompact ? "22px 20px" : "30px 32px",
+          position: "relative",
+          overflow: "hidden",
+          boxShadow: M.shadow,
         }}
       >
-        <div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-            <span style={{ fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.08em", color: M.gold, fontWeight: 700 }}>
-              Faculty Preferences
-            </span>
-          </div>
-          <h1 style={{ fontFamily: M.serif, fontSize: "1.85rem", fontWeight: 700, color: M.text, margin: 0 }}>
-            Profile & Availability
-          </h1>
-          <p style={{ color: M.textMuted, fontSize: "0.88rem", marginTop: 4, marginBottom: 0 }}>
-            Configure your public profile, teaching philosophy, weekly schedule, blackout dates, and earnings.
-          </p>
-        </div>
+        <div
+          aria-hidden
+          style={{
+            position: "absolute", top: -50, right: -50, width: 220, height: 220, borderRadius: "50%",
+            background: "radial-gradient(circle, rgba(212,175,55,0.12) 0%, transparent 70%)", pointerEvents: "none",
+          }}
+        />
+        <div
+          style={{
+            display: "flex",
+            flexDirection: isCompact ? "column" : "row",
+            alignItems: isCompact ? "flex-start" : "center",
+            justifyContent: "space-between",
+            gap: 18,
+            position: "relative",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 18, minWidth: 0 }}>
+            {/* Avatar with upload affordance */}
+            <div style={{ position: "relative", flexShrink: 0 }}>
+              <MentorAvatar name={mentor.name} avatarUrl={mentor.avatarUrl} size={isCompact ? 64 : 76} glow />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                title="Change profile photo"
+                style={{
+                  position: "absolute", bottom: -2, right: -2, width: 26, height: 26, borderRadius: "50%",
+                  background: M.gold, border: `2px solid ${M.surface}`, display: "flex", alignItems: "center",
+                  justifyContent: "center", cursor: "pointer",
+                }}
+              >
+                <Camera size={12} color="#11101a" />
+              </button>
+              <input ref={fileInputRef} type="file" accept="image/*" onChange={handleAvatarFileChange} style={{ display: "none" }} />
+            </div>
 
-        {subTab === "profile" && (
-          <button
-            onClick={handleSaveProfile}
-            disabled={saving}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 7,
-              padding: "10px 22px",
-              borderRadius: M.radiusSm,
-              background: M.gold,
-              color: "#11101a",
-              border: "none",
-              fontWeight: 700,
-              fontSize: "0.86rem",
-              cursor: saving ? "default" : "pointer",
-              fontFamily: M.sans,
-              opacity: saving ? 0.7 : 1,
-              boxShadow: "0 2px 10px rgba(212,175,55,0.25)",
-            }}
-          >
-            <Save size={15} /> {saving ? "Saving…" : "Save Profile"}
-          </button>
-        )}
+            <div style={{ minWidth: 0 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
+                <span style={{ fontSize: "0.7rem", textTransform: "uppercase", letterSpacing: "0.08em", color: M.gold, fontWeight: 700 }}>
+                  Starfix Mentor
+                </span>
+                <span
+                  style={{
+                    display: "inline-flex", alignItems: "center", gap: 5, padding: "2px 8px", borderRadius: M.radiusPill,
+                    background: mentor.acceptingMentees ? M.greenBg : "rgba(255,255,255,0.06)",
+                    border: `1px solid ${mentor.acceptingMentees ? M.greenBorder : M.border}`,
+                    color: mentor.acceptingMentees ? M.green : M.textFaint, fontSize: "0.68rem", fontWeight: 700,
+                  }}
+                >
+                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: mentor.acceptingMentees ? M.green : M.textFaint }} />
+                  {mentor.acceptingMentees ? "Available" : "Paused"}
+                </span>
+                {mentor.rating >= 4.5 && (
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: "0.68rem", color: M.gold, fontWeight: 700 }}>
+                    <ShieldCheck size={12} /> Verified Faculty
+                  </span>
+                )}
+              </div>
+              <h1 style={{ fontFamily: M.serif, fontSize: isCompact ? "1.5rem" : "1.85rem", fontWeight: 700, color: M.text, margin: 0, lineHeight: 1.15 }}>
+                {mentor.name}
+              </h1>
+              <p style={{ color: M.textMuted, fontSize: "0.92rem", marginTop: 4, marginBottom: 0 }}>
+                {mentor.headline}{mentor.company ? ` · ${mentor.company}` : ""}
+              </p>
+            </div>
+          </div>
+
+          {subTab === "profile" && (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: isCompact ? "flex-start" : "flex-end", gap: 6, width: isCompact ? "100%" : "auto" }}>
+              <button
+                onClick={handleSaveProfile}
+                disabled={saving || !isDirty}
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 7, padding: "10px 22px", borderRadius: M.radiusSm,
+                  background: isDirty ? M.gold : "rgba(255,255,255,0.06)",
+                  color: isDirty ? "#11101a" : M.textFaint,
+                  border: isDirty ? "none" : `1px solid ${M.border}`,
+                  fontWeight: 700, fontSize: "0.86rem",
+                  cursor: saving || !isDirty ? "default" : "pointer",
+                  fontFamily: M.sans, opacity: saving ? 0.7 : 1, width: isCompact ? "100%" : "auto",
+                  justifyContent: "center",
+                  boxShadow: isDirty ? "0 2px 10px rgba(212,175,55,0.25)" : "none",
+                }}
+              >
+                <Save size={15} /> {saving ? "Saving…" : isDirty ? "Save Profile" : "Saved"}
+              </button>
+              <span style={{ fontSize: "0.72rem", color: isDirty ? M.amber : M.textFaint, display: "flex", alignItems: "center", gap: 5 }}>
+                {isDirty ? (
+                  <><AlertCircle size={11} /> Unsaved changes</>
+                ) : lastSavedAt ? (
+                  <><Check size={11} color={M.green} /> Saved just now</>
+                ) : (
+                  "All changes saved"
+                )}
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Mentor Snapshot — what a student actually cares about ── */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: isMobile ? "1fr 1fr" : isCompact ? "repeat(3, 1fr)" : "repeat(6, 1fr)",
+          gap: 12,
+        }}
+      >
+        {[
+          { icon: Briefcase, label: "Expertise", value: mentor.category },
+          { icon: Award, label: "Experience", value: `${mentor.yearsExperience}+ yrs` },
+          { icon: Users, label: "Active Mentees", value: String(activeMenteesCount) },
+          { icon: GraduationCap, label: "Sessions Done", value: String(sessionsCompletedCount) },
+          { icon: Calendar, label: "Mentoring Since", value: mentoringSinceLabel },
+          { icon: Star, label: "Rating", value: mentor.totalReviews > 0 ? `${mentor.rating.toFixed(1)} ★` : "New" },
+        ].map((s) => (
+          <div key={s.label} style={{ background: M.surface, border: `1px solid ${M.border}`, borderRadius: M.radiusSm, padding: "12px 14px" }}>
+            <s.icon size={13} color={M.gold} />
+            <div style={{ fontSize: "0.95rem", fontWeight: 700, color: M.text, marginTop: 6 }}>{s.value}</div>
+            <div style={{ fontSize: "0.68rem", color: M.textFaint, marginTop: 1 }}>{s.label}</div>
+          </div>
+        ))}
       </div>
 
       {/* ── Sub Navigation Tabs ── */}
@@ -280,17 +461,17 @@ export function MentorProfilePage({
       {/* ── SubTab 1: Profile ── */}
       {subTab === "profile" && (
         <form onSubmit={handleSaveProfile} style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-          <div
-            style={{
-              background: M.surface,
-              border: `1px solid ${M.border}`,
-              borderRadius: M.radiusLg,
-              padding: isCompact ? "20px" : "28px",
-              display: "flex",
-              flexDirection: "column",
-              gap: 20,
-            }}
-          >
+
+          {/* ── Group: Identity & Professional Information ── */}
+          <div style={{ background: M.surface, border: `1px solid ${M.border}`, borderRadius: M.radiusLg, padding: isCompact ? "20px" : "28px", display: "flex", flexDirection: "column", gap: 20 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <IdCard size={16} color={M.gold} />
+              <div>
+                <h3 style={{ fontSize: "0.98rem", fontWeight: 700, color: M.text, margin: 0 }}>Identity & Professional Information</h3>
+                <p style={{ fontSize: "0.78rem", color: M.textFaint, margin: "2px 0 0" }}>How you're identified across Starfix</p>
+              </div>
+            </div>
+
             <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 18 }}>
               {/* Full Name */}
               <div>
@@ -415,129 +596,38 @@ export function MentorProfilePage({
               </div>
             </div>
 
-            {/* Public Bio */}
+            {/* LinkedIn */}
             <div>
               <label style={{ fontSize: "0.78rem", color: M.textMuted, fontWeight: 600, display: "block", marginBottom: 6 }}>
-                Public Bio & Background
+                LinkedIn Profile URL
               </label>
-              <textarea
-                rows={3}
-                value={bio}
-                onChange={(e) => setBio(e.target.value)}
-                placeholder="Introduce your engineering background and what mentees can expect to gain from working with you…"
+              <input
+                type="url"
+                value={linkedinUrl}
+                onChange={(e) => setLinkedinUrl(e.target.value)}
+                placeholder="https://linkedin.com/in/yourprofile"
                 style={{
                   width: "100%",
                   boxSizing: "border-box",
-                  padding: "12px 14px",
+                  padding: "10px 14px",
                   borderRadius: M.radiusSm,
                   background: M.surfaceAlt,
                   border: `1px solid ${M.border}`,
                   color: M.text,
                   fontSize: "0.88rem",
-                  lineHeight: 1.5,
                   outline: "none",
-                  resize: "vertical",
                 }}
               />
             </div>
+          </div>
 
-            {/* Mentoring Approach & Philosophy */}
-            <div>
-              <label style={{ fontSize: "0.78rem", color: M.textMuted, fontWeight: 600, display: "block", marginBottom: 6 }}>
-                Mentoring Approach & Philosophy
-              </label>
-              <textarea
-                rows={3}
-                value={mentoringApproach}
-                onChange={(e) => setMentoringApproach(e.target.value)}
-                placeholder="Describe your pedagogical philosophy (e.g., first-principles thinking, live coding walkthroughs, mock interviews with rubric scoring)…"
-                style={{
-                  width: "100%",
-                  boxSizing: "border-box",
-                  padding: "12px 14px",
-                  borderRadius: M.radiusSm,
-                  background: M.surfaceAlt,
-                  border: `1px solid ${M.border}`,
-                  color: M.text,
-                  fontSize: "0.88rem",
-                  lineHeight: 1.5,
-                  outline: "none",
-                  resize: "vertical",
-                }}
-              />
-            </div>
-
-            {/* Languages Spoken */}
-            <div>
-              <label style={{ fontSize: "0.78rem", color: M.textMuted, fontWeight: 600, display: "block", marginBottom: 6 }}>
-                Languages Spoken
-              </label>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
-                {languages.map((lang) => (
-                  <span
-                    key={lang}
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 6,
-                      padding: "4px 10px",
-                      borderRadius: M.radiusPill,
-                      background: M.goldBg,
-                      border: `1px solid ${M.goldBorder}`,
-                      color: M.gold,
-                      fontSize: "0.78rem",
-                    }}
-                  >
-                    <Globe size={11} />
-                    {lang}
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveLanguage(lang)}
-                      style={{ background: "none", border: "none", color: M.gold, cursor: "pointer", padding: 0, display: "flex" }}
-                    >
-                      <X size={12} />
-                    </button>
-                  </span>
-                ))}
-              </div>
-              <div style={{ display: "flex", gap: 8, maxWidth: 360 }}>
-                <input
-                  type="text"
-                  value={newLangInput}
-                  onChange={(e) => setNewLangInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      handleAddLanguage();
-                    }
-                  }}
-                  placeholder="Add language (e.g. English, French)…"
-                  style={{
-                    flex: 1,
-                    padding: "8px 12px",
-                    borderRadius: M.radiusSm,
-                    background: M.surfaceAlt,
-                    border: `1px solid ${M.border}`,
-                    color: M.text,
-                    fontSize: "0.84rem",
-                    outline: "none",
-                  }}
-                />
-                <button
-                  type="button"
-                  onClick={handleAddLanguage}
-                  style={{
-                    padding: "8px 14px",
-                    borderRadius: M.radiusSm,
-                    background: "rgba(255,255,255,0.06)",
-                    border: `1px solid ${M.border}`,
-                    color: M.text,
-                    fontSize: "0.82rem",
-                    cursor: "pointer",
-                  }}
-                >
-                  Add
-                </button>
+          {/* ── Group: Expertise & Specializations ── */}
+          <div style={{ background: M.surface, border: `1px solid ${M.border}`, borderRadius: M.radiusLg, padding: isCompact ? "20px" : "28px", display: "flex", flexDirection: "column", gap: 20 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <Layers size={16} color={M.gold} />
+              <div>
+                <h3 style={{ fontSize: "0.98rem", fontWeight: 700, color: M.text, margin: 0 }}>Expertise & Specializations</h3>
+                <p style={{ fontSize: "0.78rem", color: M.textFaint, margin: "2px 0 0" }}>What you're known for, and who you can help</p>
               </div>
             </div>
 
@@ -614,26 +704,264 @@ export function MentorProfilePage({
               </div>
             </div>
 
-            {/* LinkedIn */}
+            {/* Areas I Can Help With — new */}
             <div>
               <label style={{ fontSize: "0.78rem", color: M.textMuted, fontWeight: 600, display: "block", marginBottom: 6 }}>
-                LinkedIn Profile URL
+                Areas I Can Help With
               </label>
-              <input
-                type="url"
-                value={linkedinUrl}
-                onChange={(e) => setLinkedinUrl(e.target.value)}
-                placeholder="https://linkedin.com/in/yourprofile"
+              <p style={{ fontSize: "0.76rem", color: M.textFaint, margin: "0 0 10px" }}>
+                Concrete situations a student would recognize — e.g. "Resume & LinkedIn review", "System design interviews".
+              </p>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
+                {areasCanHelp.map((area) => (
+                  <span
+                    key={area}
+                    style={{
+                      display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: M.radiusPill,
+                      background: M.blueBg, border: `1px solid ${M.blueBorder}`, color: M.blue, fontSize: "0.78rem",
+                    }}
+                  >
+                    <Compass size={11} />
+                    {area}
+                    <button type="button" onClick={() => handleRemoveArea(area)} style={{ background: "none", border: "none", color: M.blue, cursor: "pointer", padding: 0, display: "flex" }}>
+                      <X size={12} />
+                    </button>
+                  </span>
+                ))}
+                {areasCanHelp.length === 0 && (
+                  <span style={{ fontSize: "0.78rem", color: M.textFaint, fontStyle: "italic" }}>None added yet — students see this as a quick-scan list.</span>
+                )}
+              </div>
+              <div style={{ display: "flex", gap: 8, maxWidth: 400 }}>
+                <input
+                  type="text"
+                  value={newAreaInput}
+                  onChange={(e) => setNewAreaInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddArea(); } }}
+                  placeholder="Add an area (e.g. Mock interviews)…"
+                  style={{ flex: 1, padding: "8px 12px", borderRadius: M.radiusSm, background: M.surfaceAlt, border: `1px solid ${M.border}`, color: M.text, fontSize: "0.84rem", outline: "none" }}
+                />
+                <button type="button" onClick={handleAddArea} style={{ padding: "8px 14px", borderRadius: M.radiusSm, background: "rgba(255,255,255,0.06)", border: `1px solid ${M.border}`, color: M.text, fontSize: "0.82rem", cursor: "pointer" }}>
+                  Add
+                </button>
+              </div>
+            </div>
+
+            {/* Languages Spoken */}
+            <div>
+              <label style={{ fontSize: "0.78rem", color: M.textMuted, fontWeight: 600, display: "block", marginBottom: 6 }}>
+                Languages Spoken
+              </label>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
+                {languages.map((lang) => (
+                  <span
+                    key={lang}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 6,
+                      padding: "4px 10px",
+                      borderRadius: M.radiusPill,
+                      background: M.goldBg,
+                      border: `1px solid ${M.goldBorder}`,
+                      color: M.gold,
+                      fontSize: "0.78rem",
+                    }}
+                  >
+                    <Globe size={11} />
+                    {lang}
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveLanguage(lang)}
+                      style={{ background: "none", border: "none", color: M.gold, cursor: "pointer", padding: 0, display: "flex" }}
+                    >
+                      <X size={12} />
+                    </button>
+                  </span>
+                ))}
+              </div>
+              <div style={{ display: "flex", gap: 8, maxWidth: 360 }}>
+                <input
+                  type="text"
+                  value={newLangInput}
+                  onChange={(e) => setNewLangInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleAddLanguage();
+                    }
+                  }}
+                  placeholder="Add language (e.g. English, French)…"
+                  style={{
+                    flex: 1,
+                    padding: "8px 12px",
+                    borderRadius: M.radiusSm,
+                    background: M.surfaceAlt,
+                    border: `1px solid ${M.border}`,
+                    color: M.text,
+                    fontSize: "0.84rem",
+                    outline: "none",
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={handleAddLanguage}
+                  style={{
+                    padding: "8px 14px",
+                    borderRadius: M.radiusSm,
+                    background: "rgba(255,255,255,0.06)",
+                    border: `1px solid ${M.border}`,
+                    color: M.text,
+                    fontSize: "0.82rem",
+                    cursor: "pointer",
+                  }}
+                >
+                  Add
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* ── Group: Mentoring Approach ── */}
+          <div style={{ background: M.surface, border: `1px solid ${M.border}`, borderRadius: M.radiusLg, padding: isCompact ? "20px" : "28px", display: "flex", flexDirection: "column", gap: 20 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <Compass size={16} color={M.gold} />
+              <div>
+                <h3 style={{ fontSize: "0.98rem", fontWeight: 700, color: M.text, margin: 0 }}>Mentoring Approach</h3>
+                <p style={{ fontSize: "0.78rem", color: M.textFaint, margin: "2px 0 0" }}>How you actually run a session, and who it's best suited for</p>
+              </div>
+            </div>
+
+            {/* Mentoring Approach & Philosophy */}
+            <div>
+              <label style={{ fontSize: "0.78rem", color: M.textMuted, fontWeight: 600, display: "block", marginBottom: 6 }}>
+                Mentoring Approach & Philosophy
+              </label>
+              <textarea
+                rows={3}
+                value={mentoringApproach}
+                onChange={(e) => setMentoringApproach(e.target.value)}
+                placeholder="Describe your pedagogical philosophy (e.g., first-principles thinking, live coding walkthroughs, mock interviews with rubric scoring)…"
                 style={{
                   width: "100%",
                   boxSizing: "border-box",
-                  padding: "10px 14px",
+                  padding: "12px 14px",
                   borderRadius: M.radiusSm,
                   background: M.surfaceAlt,
                   border: `1px solid ${M.border}`,
                   color: M.text,
                   fontSize: "0.88rem",
+                  lineHeight: 1.5,
                   outline: "none",
+                  resize: "vertical",
+                }}
+              />
+            </div>
+
+            {/* Mentoring Style — new, multi-select chips */}
+            <div>
+              <label style={{ fontSize: "0.78rem", color: M.textMuted, fontWeight: 600, display: "block", marginBottom: 8 }}>
+                Mentoring Style
+              </label>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                {MENTORING_STYLE_OPTIONS.map((opt) => {
+                  const active = mentoringStyle.includes(opt);
+                  return (
+                    <button
+                      key={opt}
+                      type="button"
+                      onClick={() => toggleMentoringStyle(opt)}
+                      style={{
+                        display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: M.radiusPill,
+                        background: active ? M.goldBg : "rgba(255,255,255,0.04)",
+                        border: `1px solid ${active ? M.goldBorder : M.border}`,
+                        color: active ? M.gold : M.textMuted, fontSize: "0.8rem", fontWeight: active ? 700 : 500,
+                        cursor: "pointer", fontFamily: M.sans,
+                      }}
+                    >
+                      {active && <Check size={11} />} {opt}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Session Types — new, multi-select chips */}
+            <div>
+              <label style={{ fontSize: "0.78rem", color: M.textMuted, fontWeight: 600, display: "block", marginBottom: 8 }}>
+                Session Types Offered
+              </label>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                {SESSION_TYPE_OPTIONS.map((opt) => {
+                  const active = sessionTypes.includes(opt);
+                  return (
+                    <button
+                      key={opt}
+                      type="button"
+                      onClick={() => toggleSessionType(opt)}
+                      style={{
+                        display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: M.radiusPill,
+                        background: active ? M.purpleBg : "rgba(255,255,255,0.04)",
+                        border: `1px solid ${active ? M.purpleBorder : M.border}`,
+                        color: active ? M.purple : M.textMuted, fontSize: "0.8rem", fontWeight: active ? 700 : 500,
+                        cursor: "pointer", fontFamily: M.sans,
+                      }}
+                    >
+                      {active && <Check size={11} />} {opt}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Target Learner Level — new */}
+            <div style={{ maxWidth: 320 }}>
+              <label style={{ fontSize: "0.78rem", color: M.textMuted, fontWeight: 600, display: "block", marginBottom: 6 }}>
+                Target Learner Level
+              </label>
+              <select
+                value={targetLevel}
+                onChange={(e) => setTargetLevel(e.target.value)}
+                style={{ width: "100%", padding: "10px 14px", borderRadius: M.radiusSm, background: M.surfaceAlt, border: `1px solid ${M.border}`, color: M.text, fontSize: "0.88rem", outline: "none" }}
+              >
+                <option value="">Not specified</option>
+                {TARGET_LEVEL_OPTIONS.map((lvl) => <option key={lvl} value={lvl}>{lvl}</option>)}
+              </select>
+            </div>
+          </div>
+
+          {/* ── Group: Public Introduction ── */}
+          <div style={{ background: M.surface, border: `1px solid ${M.border}`, borderRadius: M.radiusLg, padding: isCompact ? "20px" : "28px", display: "flex", flexDirection: "column", gap: 20 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <BookOpen size={16} color={M.gold} />
+              <div>
+                <h3 style={{ fontSize: "0.98rem", fontWeight: 700, color: M.text, margin: 0 }}>Public Introduction</h3>
+                <p style={{ fontSize: "0.78rem", color: M.textFaint, margin: "2px 0 0" }}>The first thing a student reads on your profile</p>
+              </div>
+            </div>
+
+            {/* Public Bio */}
+            <div>
+              <label style={{ fontSize: "0.78rem", color: M.textMuted, fontWeight: 600, display: "block", marginBottom: 6 }}>
+                Public Bio & Background
+              </label>
+              <textarea
+                rows={3}
+                value={bio}
+                onChange={(e) => setBio(e.target.value)}
+                placeholder="Introduce your engineering background and what mentees can expect to gain from working with you…"
+                style={{
+                  width: "100%",
+                  boxSizing: "border-box",
+                  padding: "12px 14px",
+                  borderRadius: M.radiusSm,
+                  background: M.surfaceAlt,
+                  border: `1px solid ${M.border}`,
+                  color: M.text,
+                  fontSize: "0.88rem",
+                  lineHeight: 1.5,
+                  outline: "none",
+                  resize: "vertical",
                 }}
               />
             </div>
@@ -771,6 +1099,47 @@ export function MentorProfilePage({
                     Offer a 30-min free introductory alignment session
                   </span>
                 </button>
+              </div>
+            </div>
+          </div>
+
+          {/* How students see your availability — preview */}
+          <div
+            style={{
+              background: M.surface,
+              border: `1px solid ${M.goldBorder}`,
+              borderRadius: M.radiusLg,
+              padding: "20px 24px",
+              display: "flex",
+              flexDirection: "column",
+              gap: 12,
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <Eye size={15} color={M.gold} />
+              <h3 style={{ fontSize: "0.92rem", fontWeight: 700, color: M.gold, margin: 0 }}>
+                How Students See Your Availability
+              </h3>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+              <MentorAvatar name={mentor.name} avatarUrl={mentor.avatarUrl} size={38} />
+              <div style={{ flex: 1, minWidth: 200 }}>
+                <div style={{ fontWeight: 700, fontSize: "0.88rem", color: M.text }}>{mentor.name}</div>
+                <div style={{ fontSize: "0.76rem", color: M.textMuted, marginTop: 2 }}>
+                  {mentor.acceptingMentees
+                    ? `Accepting mentees · ${weeklySchedule.filter((d) => d.enabled).length} days/week · ${mentor.sessionDuration} sessions`
+                    : "Currently paused — not bookable"}
+                </div>
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {weeklySchedule.filter((d) => d.enabled).map((d) => (
+                  <span key={d.day} style={{ fontSize: "0.7rem", padding: "3px 8px", borderRadius: M.radiusPill, background: M.goldBg, border: `1px solid ${M.goldBorder}`, color: M.gold, fontWeight: 600 }}>
+                    {d.day.slice(0, 3)}
+                  </span>
+                ))}
+                {weeklySchedule.filter((d) => d.enabled).length === 0 && (
+                  <span style={{ fontSize: "0.76rem", color: M.textFaint, fontStyle: "italic" }}>No days enabled — students won't see any open slots.</span>
+                )}
               </div>
             </div>
           </div>
