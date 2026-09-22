@@ -20,7 +20,8 @@ import {
 import { M } from "../mentorColors";
 import { useViewport } from "../../lib/useViewport";
 import type { Mentee } from "../lib/mentorDataService";
-import { saveMenteeNotes, getMenteeNotes } from "../lib/mentorDataService";
+import { saveMenteeNotes, getMenteeNotes, fetchMentorConversations, ensureMentorConversation, sendMentorChatMessage, markMentorConversationRead } from "../lib/mentorDataService";
+import { supabase } from "../../lib/supabase";
 import { toast } from "sonner";
 
 interface MessageItem {
@@ -37,6 +38,7 @@ interface MessageItem {
 }
 
 interface Thread {
+  conversationId?: string;
   menteeId: string;
   menteeName: string;
   menteeEmail?: string;
@@ -48,6 +50,7 @@ interface Thread {
 }
 
 interface Props {
+  mentorId: string;
   mentees: Mentee[];
   openMenteeId?: string | null;
   onOpenScheduleModal: (mentee: Mentee) => void;
@@ -88,6 +91,7 @@ const STARFIX_CURATED_RESOURCES = [
 ];
 
 export function MentorMessagesPage({
+  mentorId,
   mentees,
   openMenteeId,
   onOpenScheduleModal,
@@ -118,85 +122,54 @@ export function MentorMessagesPage({
     "Check out the architecture doc I shared on distributed caching.",
   ];
 
-  // Initialize conversations from mentees
-  useEffect(() => {
-    const initial: Record<string, Thread> = {};
-
-    const defaultConversations: Record<string, MessageItem[]> = {
-      mentee_1: [
-        {
-          id: "m1",
-          sender: "user",
-          text: "Hi! Looking forward to our system architecture deep dive tomorrow.",
-          sentAt: "10:30 AM",
-          status: "seen",
-        },
-        {
-          id: "m2",
-          sender: "mentor",
-          text: "Hi Aarav! Looking forward to it. Have you had a chance to prepare the microservice diagram?",
-          sentAt: "10:45 AM",
-          status: "seen",
-        },
-        {
-          id: "m3",
-          sender: "user",
-          text: "Yes, I uploaded the schema and API specs to our drive. We can walk through them first.",
-          sentAt: "11:15 AM",
-          status: "delivered",
-        },
-      ],
-      mentee_2: [
-        {
-          id: "m4",
-          sender: "user",
-          text: "Could you share the PyTorch deployment slides from our previous discussion?",
-          sentAt: "Yesterday",
-          status: "seen",
-        },
-        {
-          id: "m5",
-          sender: "mentor",
-          text: "Sent! Check your email or the resources tab on Starfix.",
-          sentAt: "Yesterday",
-          status: "seen",
-        },
-      ],
-      mentee_4: [
-        {
-          id: "m6",
-          sender: "user",
-          text: "Hello mentor, excited for our intro roadmap alignment on Saturday!",
-          sentAt: "2 days ago",
-          status: "delivered",
-        },
-      ],
-    };
-
-    mentees.forEach((m) => {
-      const msgs = defaultConversations[m.id] || [
-        {
-          id: `init_${m.id}`,
-          sender: "user",
-          text: `Hi, thank you for connecting with me on Starfix!`,
-          sentAt: "Recently",
-          status: "seen",
-        },
-      ];
-      initial[m.id] = {
-        menteeId: m.id,
-        menteeName: m.name,
-        menteeEmail: m.email,
-        careerGoal: m.careerGoal,
+  const reloadRemoteThreads = async () => {
+    const remote = await fetchMentorConversations(mentorId);
+    const next: Record<string, Thread> = {};
+    remote.forEach((t) => {
+      const msgs: MessageItem[] = t.messages.map((m) => ({
+        id: m.id,
+        sender: m.sender === "mentor" ? "mentor" : "user",
+        text: m.text,
+        sentAt: new Date(m.sentAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        status: (m.status as any) || "sent",
+      }));
+      next[t.studentId] = {
+        conversationId: t.conversationId,
+        menteeId: t.studentId,
+        menteeName: t.studentName,
+        menteeEmail: t.studentEmail,
+        careerGoal: t.careerGoal,
         lastMessage: msgs[msgs.length - 1]?.text || "",
-        lastMessageAt: msgs[msgs.length - 1]?.sentAt || "Recent",
-        unreadCount: m.id === "mentee_1" ? 1 : 0,
+        lastMessageAt: msgs.length ? "Recent" : "New",
+        unreadCount: t.unreadCount,
         messages: msgs,
       };
     });
+    mentees.forEach((m) => {
+      if (!next[m.id]) {
+        next[m.id] = {
+          menteeId: m.id,
+          menteeName: m.name,
+          menteeEmail: m.email,
+          careerGoal: m.careerGoal,
+          lastMessage: "",
+          lastMessageAt: "New",
+          unreadCount: 0,
+          messages: [],
+        };
+      }
+    });
+    setThreads(next);
+  };
 
-    setThreads(initial);
-  }, [mentees]);
+  useEffect(() => {
+    void reloadRemoteThreads();
+    const channel = supabase
+      .channel("mentor-chat-" + mentorId)
+      .on("postgres_changes", { event: "*", schema: "public", table: "messages" }, () => { void reloadRemoteThreads(); })
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [mentorId, mentees.length]);
 
   // If openMenteeId is provided, switch to that mentee
   useEffect(() => {
@@ -233,37 +206,28 @@ export function MentorMessagesPage({
     }, 200);
   };
 
-  const handleSendMessage = (textToSend?: string, resourceAttachment?: { title: string; type: string; url: string }) => {
+  const handleSendMessage = async (textToSend?: string, resourceAttachment?: { title: string; type: string; url: string }) => {
     const body = (textToSend || inputText).trim();
     if (!body && !resourceAttachment) return;
     if (!activeMenteeId) return;
+    const thread = threads[activeMenteeId];
+    if (!thread) return;
 
-    const newMsg: MessageItem = {
-      id: `msg_${Date.now()}`,
-      sender: "mentor",
-      text: body || `Recommended learning resource: "${resourceAttachment?.title}"`,
-      sentAt: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      status: "delivered",
-      resourceAttachment,
-    };
-
-    setThreads((prev) => {
-      const current = prev[activeMenteeId];
-      if (!current) return prev;
-      return {
-        ...prev,
-        [activeMenteeId]: {
-          ...current,
-          messages: [...current.messages, newMsg],
-          lastMessage: newMsg.text,
-          lastMessageAt: "Just now",
-          unreadCount: 0,
-        },
-      };
-    });
-
+    const conversationId = thread.conversationId || await ensureMentorConversation(mentorId, activeMenteeId);
+    if (!conversationId) {
+      toast.error("This student is not connected to your mentor account yet.");
+      return;
+    }
+    const textBody = body || 'Recommended learning resource: "' + resourceAttachment?.title + '"';
+    const ok = await sendMentorChatMessage(conversationId, textBody);
+    if (!ok) {
+      toast.error("Message could not be sent.");
+      return;
+    }
+    await markMentorConversationRead(conversationId);
     setInputText("");
     setShowResourcePicker(false);
+    await reloadRemoteThreads();
   };
 
   const filteredThreadKeys = Object.keys(threads).filter((id) => {
