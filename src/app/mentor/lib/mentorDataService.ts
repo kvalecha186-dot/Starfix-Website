@@ -577,6 +577,43 @@ export async function fetchMentorScheduleFromDb(mentorId: string): Promise<{ sch
   return { schedule, blocked };
 }
 
+export async function materializeMentorAvailability(mentorId: string, schedule: WeeklyScheduleDay[]): Promise<boolean> {
+  try {
+    const blocked = (await supabase.from("mentor_blocked_dates").select("blocked_date").eq("mentor_id", mentorId)).data || [];
+    const blockedSet = new Set(blocked.map((b: any) => String(b.blocked_date)));
+    const existing = (await supabase.from("mentor_availability").select("start_at,status").eq("mentor_id", mentorId).gte("start_at", new Date().toISOString()).limit(500)).data || [];
+    const existingStarts = new Set(existing.map((r: any) => new Date(r.start_at).getTime()));
+    const dayIndex: Record<string, number> = { Sunday: 0, Monday: 1, Tuesday: 2, Wednesday: 3, Thursday: 4, Friday: 5, Saturday: 6 };
+    const rows: any[] = [];
+    const now = new Date();
+    for (let offset = 1; offset <= 28; offset++) {
+      const d = new Date(now);
+      d.setHours(0, 0, 0, 0);
+      d.setDate(d.getDate() + offset);
+      const day = schedule.find((x) => dayIndex[x.day] === d.getDay());
+      if (!day?.enabled) continue;
+      const dateKey = d.toISOString().slice(0, 10);
+      if (blockedSet.has(dateKey)) continue;
+      const [sh, sm] = day.startTime.split(":").map(Number);
+      const [eh, em] = day.endTime.split(":").map(Number);
+      const cursor = new Date(d); cursor.setHours(sh || 0, sm || 0, 0, 0);
+      const end = new Date(d); end.setHours(eh || 0, em || 0, 0, 0);
+      while (cursor < end) {
+        const slotEnd = new Date(cursor.getTime() + 45 * 60000);
+        if (slotEnd > end) break;
+        const ts = cursor.getTime();
+        if (ts > Date.now() && !existingStarts.has(ts)) rows.push({ mentor_id: mentorId, start_at: cursor.toISOString(), end_at: slotEnd.toISOString(), status: "available" });
+        cursor.setTime(cursor.getTime() + 45 * 60000);
+      }
+    }
+    if (rows.length) {
+      const r = await supabase.from("mentor_availability").insert(rows);
+      if (r.error) return false;
+    }
+    return true;
+  } catch { return false; }
+}
+
 export async function saveMentorScheduleToDb(mentorId: string, schedule: WeeklyScheduleDay[]): Promise<boolean> {
   try {
     const dayIndex: Record<string, number> = { Sunday: 0, Monday: 1, Tuesday: 2, Wednesday: 3, Thursday: 4, Friday: 5, Saturday: 6 };
@@ -585,6 +622,7 @@ export async function saveMentorScheduleToDb(mentorId: string, schedule: WeeklyS
       const r = await supabase.from("mentor_schedule_rules").upsert(payload, { onConflict: "mentor_id,day_of_week" });
       if (r.error) return false;
     }
+    await materializeMentorAvailability(mentorId, schedule);
     return true;
   } catch { return false; }
 }
