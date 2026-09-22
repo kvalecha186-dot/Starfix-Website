@@ -572,6 +572,7 @@ export async function fetchMentorScheduleFromDb(mentorId: string): Promise<{ sch
     const old = fallback.find((x) => x.day === day)!;
     return { day, enabled: r ? !!r.enabled : old.enabled, startTime: r ? String(r.start_time).slice(0,5) : old.startTime, endTime: r ? String(r.end_time).slice(0,5) : old.endTime };
   }) as WeeklyScheduleDay[];
+  if (!rules.length) void saveMentorScheduleToDb(mentorId, schedule);
   const blockedRows = (await supabase.from("mentor_blocked_dates").select("id,blocked_date,reason").eq("mentor_id", mentorId).order("blocked_date")).data || [];
   const blocked = blockedRows.map((b: any) => ({ id: String(b.id), date: b.blocked_date, reason: b.reason || "Unavailable" }));
   return { schedule, blocked };
