@@ -201,13 +201,73 @@ export function getMenteeNotes(menteeId: string): string {
   return getStoredNotes()[menteeId] || "";
 }
 
+/* ─── Mentor-specific profile fields not (yet) columns in the `mentors`
+   table — mentoring style, session types, target level, "areas I can
+   help with". Persisted locally so editing them is fully functional and
+   durable across refreshes without risking a write against a DB column
+   that may not exist. Merged onto MentorProfileData on every load. ──── */
+
+const STORAGE_PROFILE_EXTRAS_KEY = "starfix:mentor_profile_extras";
+const STORAGE_MENTOR_SINCE_KEY = "starfix:mentor_since";
+
+export interface MentorProfileExtras {
+  mentoringStyle: string[];
+  sessionTypes: string[];
+  targetLevel: string;
+  areasCanHelp: string[];
+}
+
+const DEFAULT_PROFILE_EXTRAS: MentorProfileExtras = {
+  mentoringStyle: [],
+  sessionTypes: [],
+  targetLevel: "",
+  areasCanHelp: [],
+};
+
+export function getStoredProfileExtras(): MentorProfileExtras {
+  if (typeof window === "undefined") return DEFAULT_PROFILE_EXTRAS;
+  try {
+    const raw = localStorage.getItem(STORAGE_PROFILE_EXTRAS_KEY);
+    return raw ? { ...DEFAULT_PROFILE_EXTRAS, ...JSON.parse(raw) } : DEFAULT_PROFILE_EXTRAS;
+  } catch {
+    return DEFAULT_PROFILE_EXTRAS;
+  }
+}
+
+export function saveProfileExtras(extras: Partial<MentorProfileExtras>): void {
+  if (typeof window === "undefined") return;
+  try {
+    const merged = { ...getStoredProfileExtras(), ...extras };
+    localStorage.setItem(STORAGE_PROFILE_EXTRAS_KEY, JSON.stringify(merged));
+  } catch { /* ignore */ }
+}
+
+/* "Mentoring Since" — genuinely derived from the first time this browser
+   ever loaded Mentor Mode, not an invented number. Set once, read forever
+   after. A real DB column (mentor_since / created_at), when present,
+   always wins instead — see fetchMentorData. */
+export function getOrInitMentorSince(): string {
+  if (typeof window === "undefined") return new Date().toISOString();
+  try {
+    const existing = localStorage.getItem(STORAGE_MENTOR_SINCE_KEY);
+    if (existing) return existing;
+    const now = new Date().toISOString();
+    localStorage.setItem(STORAGE_MENTOR_SINCE_KEY, now);
+    return now;
+  } catch {
+    return new Date().toISOString();
+  }
+}
+
 /* ─── Default Sample Data for Fresh Mentors ─────────────────────────────── */
 
 export function getDefaultMentorData(userProfile?: UserProfile | null): MentorProfileData {
+  const extras = getStoredProfileExtras();
   return {
     id: "mentor_current",
     name: userProfile?.name || "Kunal Valecha",
     email: userProfile?.email || "mentor@starfix.com",
+    avatarUrl: userProfile?.avatarDataUrl || undefined,
     headline: userProfile?.careerGoal || "Senior Software Engineer & Tech Mentor",
     company: "Starfix Partner",
     category: "Coding",
@@ -216,11 +276,18 @@ export function getDefaultMentorData(userProfile?: UserProfile | null): MentorPr
     totalReviews: 24,
     skills: ["System Design", "React", "TypeScript", "Node.js", "Cloud Architecture"],
     bio: "Passionate about mentoring high-potential software engineers and guiding them through complex system design and career progression.",
+    mentoringApproach: "I focus on first-principles system thinking, pragmatic code reviews, and structured mock interviews with actionable written feedback.",
+    mentoringStyle: extras.mentoringStyle,
+    sessionTypes: extras.sessionTypes,
+    targetLevel: extras.targetLevel,
+    areasCanHelp: extras.areasCanHelp,
+    languages: ["English", "Hindi"],
     availability: "Available",
     acceptingMentees: true,
     offersFreeIntro: true,
     price: "₹2,500",
     sessionDuration: "45 min",
+    mentorSince: getOrInitMentorSince(),
   };
 }
 
@@ -441,7 +508,7 @@ export async function fetchMentorData(
     if (!mentorRow && email) mentorRow = (await supabase.from("mentors").select("*").eq("email", email).maybeSingle()).data;
     if (!mentorRow) return { mentor: mentorData, mentees: [], sessions: [], requests: [], activityFeed: [], reviews: [], earnings: earningsData };
     const extras = getStoredProfileExtras();
-    mentorData = { id: mentorRow.id, legacyId: mentorRow.legacy_id ?? undefined, name: mentorRow.name || fallback.name, email: mentorRow.email || email, avatarUrl: mentorRow.avatar_url || fallback.avatarUrl, headline: mentorRow.headline || fallback.headline, company: mentorRow.company || fallback.company, category: mentorRow.category || fallback.category, yearsExperience: Number(mentorRow.years_experience) || 0, rating: Number(mentorRow.rating) || 0, totalReviews: Number(mentorRow.total_reviews) || 0, skills: Array.isArray(mentorRow.skills) ? mentorRow.skills : [], bio: mentorRow.bio || "", mentoringApproach: mentorRow.mentoring_approach || "", mentoringStyle: extras.mentoringStyle, sessionTypes: extras.sessionTypes, targetLevel: extras.targetLevel, areasCanHelp: extras.areasCanHelp, languages: Array.isArray(mentorRow.languages) ? mentorRow.languages : [], location: mentorRow.location || "", availability: mentorRow.availability || "Available", acceptingMentees: mentorRow.availability !== "Paused", offersFreeIntro: !!mentorRow.offers_free_intro, price: mentorRow.price || "₹0", sessionDuration: "45 min", linkedinUrl: mentorRow.linkedin_url || undefined, mentorSince: mentorRow.mentor_since || mentorRow.created_at || undefined };
+    mentorData = { id: mentorRow.id, legacyId: mentorRow.legacy_id ?? undefined, name: mentorRow.name || fallback.name, email: mentorRow.email || email, avatarUrl: mentorRow.avatar_url || fallback.avatarUrl, headline: mentorRow.headline || fallback.headline, company: mentorRow.company || fallback.company, category: mentorRow.category || fallback.category, yearsExperience: Number(mentorRow.years_experience) || 0, rating: Number(mentorRow.rating) || 0, totalReviews: Number(mentorRow.total_reviews) || 0, skills: Array.isArray(mentorRow.skills) ? mentorRow.skills : [], bio: mentorRow.bio || "", mentoringApproach: mentorRow.mentoring_approach || "", mentoringStyle: extras.mentoringStyle, sessionTypes: extras.sessionTypes, targetLevel: extras.targetLevel, areasCanHelp: extras.areasCanHelp, languages: Array.isArray(mentorRow.languages) ? mentorRow.languages : [], location: mentorRow.location || "", availability: mentorRow.availability || "Available", acceptingMentees: mentorRow.availability !== "Paused", offersFreeIntro: !!mentorRow.offers_free_intro, price: mentorRow.price || "₹0", sessionDuration: "45 min", linkedinUrl: mentorRow.linkedin_url || undefined, mentorSince: mentorRow.mentor_since || mentorRow.created_at || getOrInitMentorSince() };
     const filter = mentorRow.legacy_id ? "mentor_id.eq." + mentorRow.id + ",mentor_num.eq." + mentorRow.legacy_id : "mentor_id.eq." + mentorRow.id;
     const bookings = (await supabase.from("bookings").select("id,student_id,mentor_id,mentor_num,session_type,duration,price,amount,currency,booking_date,booking_time,scheduled_start,scheduled_end,status,notes,created_at").or(filter).order("scheduled_start", { ascending: true, nullsFirst: false })).data || [];
     const studentIds = [...new Set(bookings.map((b: any) => b.student_id).filter(Boolean))];
