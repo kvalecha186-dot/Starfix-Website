@@ -164,7 +164,7 @@ export function MentorLayout({ userProfile, onLogout, onUpdateProfile }: Props) 
     }
     if (patch.feedbackHistory?.length) tasks.push(saveMentorFeedbackToDb(mentor.id, menteeId, patch.feedbackHistory[0]));
     if (patch.recommendedResources?.length) tasks.push(saveSharedResourceToDb(mentor.id, menteeId, patch.recommendedResources[0]));
-    if (patch.allMilestones && patch.pathId) tasks.push(saveMenteeMilestonesToDb(menteeId, patch.pathId, patch.allMilestones));
+    if (patch.allMilestones) { const current = mentees.find((m) => m.id === menteeId); const pathId = patch.pathId || current?.pathId; if (pathId) tasks.push(saveMenteeMilestonesToDb(menteeId, pathId, patch.allMilestones)); }
     const results = await Promise.all(tasks);
     if (results.some((ok) => !ok)) toast.error("Some mentor data could not be saved.");
   };
