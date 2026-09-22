@@ -84,8 +84,29 @@ export function MentorDetailPage({
   const { isDesktop } = useViewport();
   const routerNavigate = useNavigate();
   const staticMentor = MENTORS.find((m) => m.id === mentorId);
-  const detail = MENTOR_DETAILS[mentorId];
-  const extra = MENTOR_EXTRA[mentorId];
+  const detail = MENTOR_DETAILS[mentorId] || {
+    bio: staticMentor?.title ? staticMentor.name + " is a " + staticMentor.title + " focused on practical, outcome-driven mentoring." : "Starfix mentor focused on practical, outcome-driven mentoring.",
+    about: "This mentor's detailed profile is being completed. You can still view their verified Starfix profile, session types, availability, and book a session.",
+    experience: "Professional mentor",
+    responseTime: "Usually responds within 24 hours",
+    languages: ["English"],
+    location: "Online",
+    learn: staticMentor?.skills || [],
+    learningStyle: ["Practical guidance", "Structured feedback", "Goal-oriented"],
+    availability: [],
+    relatedPaths: [staticMentor?.category || "Growth"],
+    content: [],
+    faq: [
+      { q: "What can I expect from a session?", a: "A focused 1:1 conversation around your goal, current progress, and next steps." },
+      { q: "Can I message the mentor before booking?", a: "Yes. Use the Message Mentor button to start a conversation." },
+    ],
+    reviews: [],
+  };
+  const extra = MENTOR_EXTRA[mentorId] || {
+    results: [],
+    timeline: [],
+    sessions: [],
+  };
   const [dbMentor, setDbMentor] = useState<any>(null);
   const [dbSessions, setDbSessions] = useState<any[]>([]);
   const [dbAvailability, setDbAvailability] = useState<any[]>([]);
