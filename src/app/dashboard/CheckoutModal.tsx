@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
 import {
@@ -48,6 +48,13 @@ export function CheckoutModal({
   const [promoApplied, setPromoApplied] = useState(false);
   const [notes, setNotes] = useState("");
 
+  useEffect(() => {
+    const first = availability[0];
+    if (!first) return;
+    setSelectedDate(first.date);
+    setSelectedSlot(first.slots[0] || "6:00 PM");
+  }, [availability]);
+
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingStep, setProcessingStep] = useState("");
   const [completedBooking, setCompletedBooking] = useState<Booking | null>(null);
@@ -61,7 +68,7 @@ export function CheckoutModal({
 
   // Current available slots for selected date
   const currentAvail = availability.find((a) => a.date === selectedDate);
-  const currentSlots = currentAvail?.slots?.length ? currentAvail.slots : ["5:30 PM", "7:00 PM", "8:30 PM"];
+  const currentSlots = currentAvail?.slots?.length ? currentAvail.slots : [];
 
   const applyPromo = () => {
     const code = promoCode.trim().toUpperCase();
