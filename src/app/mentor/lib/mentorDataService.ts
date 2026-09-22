@@ -6,27 +6,6 @@ export interface MentorProfileData {
   legacyId?: number;
   name: string;
   email: string;
-  headline: string;
-  company: string;
-  category: string;
-  yearsExperience: number;
-  rating: number;
-  totalReviews: number;
-  skills: string[];
-  bio: string;
-  availability: string;
-  acceptingMentees: boolean;
-  offersFreeIntro: boolean;
-  price: string;
-  sessionDuration: string;
-  linkedinUrl?: string;
-}
-
-export interface MentorProfileData {
-  id: string;
-  legacyId?: number;
-  name: string;
-  email: string;
   avatarUrl?: string;
   headline: string;
   company: string;
