@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Calendar,
@@ -31,6 +31,7 @@ interface Props {
   sessions: MentorSession[];
   mentees: Mentee[];
   mentorName: string;
+  initialMenteeId?: string | null;
   onSessionStatusChange: (sessionId: string, status: "Completed" | "Cancelled" | "Booked") => void;
   onUpdateSession?: (sessionId: string, patch: Partial<MentorSession>) => void;
   onAddSession: (newSession: Omit<MentorSession, "id" | "createdAt">) => void;
@@ -44,6 +45,7 @@ export function MentorSessionsPage({
   sessions,
   mentees,
   mentorName,
+  initialMenteeId,
   onSessionStatusChange,
   onUpdateSession,
   onAddSession,
@@ -72,6 +74,11 @@ export function MentorSessionsPage({
   const [sessionDuration, setSessionDuration] = useState("45 min");
   const [sessionPrice, setSessionPrice] = useState("₹2,500");
   const [sessionPrepNotes, setSessionPrepNotes] = useState("");
+
+  useEffect(() => {
+    if (initialMenteeId && mentees.some((m) => m.id === initialMenteeId)) setSelectedMenteeId(initialMenteeId);
+  }, [initialMenteeId, mentees]);
+
 
   const filteredSessions = sessions.filter((s) => {
     if (activeTab === "upcoming") return s.status === "Booked";
