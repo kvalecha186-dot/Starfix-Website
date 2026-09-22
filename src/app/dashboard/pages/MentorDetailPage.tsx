@@ -16,8 +16,9 @@ import { MENTOR_DETAILS } from "../mentorData";
 import { MENTOR_EXTRA, CATEGORY_CONFIG } from "../mentorExtra";
 import { getAllEnrollments, ENROLLMENTS_CHANGED_EVENT } from "../../lib/pathProgress";
 import { PATHS } from "./GoalsPage";
-import { createBooking, isSessionBooked, BOOKINGS_CHANGED_EVENT } from "../../lib/bookings";
+import { createBooking, isSessionBooked, BOOKINGS_CHANGED_EVENT, getBookingHistory } from "../../lib/bookings";
 import { CheckoutModal } from "../CheckoutModal";
+import { submitMentorReview } from "../../lib/supabaseDb";
 import { supabase } from "../../lib/supabase";
 
 /* ─── Small building blocks ───────────────────────── */
@@ -91,6 +92,12 @@ export function MentorDetailPage({
   const [openFaq, setOpenFaq] = useState<number | null>(0);
   const [selectedSession, setSelectedSession] = useState(0);
   const [showCheckout, setShowCheckout] = useState(false);
+  const [reviewBookingId, setReviewBookingId] = useState<string | null>(null);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewText, setReviewText] = useState("");
+  const [reviewSaving, setReviewSaving] = useState(false);
+  const [reviewSubmitted, setReviewSubmitted] = useState(false);
+
   useEffect(() => {
     void (async () => {
       const mentorRow = (await supabase.from("mentors").select("*").eq("legacy_id", mentorId).maybeSingle()).data;
@@ -122,6 +129,18 @@ export function MentorDetailPage({
     ? dbSessions.map((s: any) => ({ name: s.title, duration: (s.duration_minutes || 45) + " min", price: Number(s.price) === 0 ? "Free" : "₹" + Number(s.price).toLocaleString("en-IN"), includes: s.description ? [s.description] : [], popular: false }))
     : (extra?.sessions || []);
 
+
+  useEffect(() => {
+    const completed = getBookingHistory().find((b) => b.mentorId === mentorId && b.status === "Completed");
+    if (!completed) return;
+    setReviewBookingId(completed.id);
+    void (async () => {
+      const auth = await supabase.auth.getUser();
+      if (!auth.data.user) return;
+      const existing = (await supabase.from("reviews").select("id").eq("booking_id", completed.id).eq("student_id", auth.data.user.id).maybeSingle()).data;
+      setReviewSubmitted(!!existing);
+    })();
+  }, [mentorId]);
 
   // The learner's own saved session notes with this mentor — read live
   // from the same enrollment store the Workspace's Notes card (Save
@@ -466,6 +485,30 @@ export function MentorDetailPage({
               ))}
             </div>
           </section>
+
+          {reviewBookingId && !reviewSubmitted && dbMentor?.id && (
+            <section style={{ marginBottom: 44 }}>
+              <SectionTitle>Share Your Experience</SectionTitle>
+              <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: C.radius, padding: 20, maxWidth: 620 }}>
+                <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+                  {[1,2,3,4,5].map((star) => (
+                    <button key={star} type="button" onClick={() => setReviewRating(star)} style={{ background: "none", border: "none", cursor: "pointer", padding: 2 }}>
+                      <Star size={18} color={C.gold} fill={star <= reviewRating ? C.gold : "none"} />
+                    </button>
+                  ))}
+                </div>
+                <textarea value={reviewText} onChange={(e) => setReviewText(e.target.value)} placeholder="How was your mentorship session?" rows={4} style={{ width: "100%", boxSizing: "border-box", resize: "vertical", background: C.surfaceAlt, color: C.text, border: `1px solid ${C.border}`, borderRadius: C.radiusSm, padding: 12, fontFamily: "'Inter', sans-serif", outline: "none" }} />
+                <button type="button" disabled={reviewSaving || !reviewText.trim()} onClick={async () => {
+                  setReviewSaving(true);
+                  const ok = await submitMentorReview(reviewBookingId, dbMentor.id, reviewRating, reviewText);
+                  setReviewSaving(false);
+                  if (ok) { setReviewSubmitted(true); toast.success("Review submitted."); } else toast.error("Could not submit review.");
+                }} style={{ marginTop: 10, padding: "10px 16px", borderRadius: C.radiusSm, border: "none", background: reviewText.trim() ? C.gold : C.border, color: "#fff", fontWeight: 700, cursor: reviewText.trim() ? "pointer" : "default" }}>
+                  {reviewSaving ? "Submitting…" : "Submit Review"}
+                </button>
+              </div>
+            </section>
+          )}
 
           {/* 10 — Related growth paths */}
           <section style={{ marginBottom: 44 }}>
