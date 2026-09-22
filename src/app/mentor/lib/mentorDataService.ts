@@ -688,7 +688,48 @@ export async function updateMentorGoalInDb(mentorId: string, studentId: string, 
 export async function saveMentorFeedbackToDb(mentorId: string, studentId: string, feedback: MenteeFeedback): Promise<boolean> { const r = await supabase.from("mentor_feedback").insert({ mentor_id: mentorId, student_id: studentId, focus: feedback.focus, content: feedback.content, rating: feedback.rating ?? null }); return !r.error; }
 export async function saveSharedResourceToDb(mentorId: string, studentId: string, resource: MenteeResource, message?: string): Promise<boolean> { const r = await supabase.from("shared_resources").insert({ mentor_id: mentorId, student_id: studentId, resource_type: resource.type, title: resource.title, url: resource.url, message: message || null }); return !r.error; }
 export async function fetchMentorReviewsFromDb(mentorId: string): Promise<MentorReview[]> { const rows = (await supabase.from("reviews").select("id,student_id,rating,review_text,created_at").eq("mentor_id", mentorId).order("created_at", { ascending: false })).data || []; const ids = [...new Set(rows.map((r: any) => r.student_id).filter(Boolean))]; const ps = ids.length ? ((await supabase.from("profiles").select("id,full_name").in("id", ids)).data || []) : []; const pm = new Map(ps.map((p: any) => [p.id, p.full_name])); return rows.map((r: any) => ({ id: String(r.id), menteeName: pm.get(r.student_id) || "Student", rating: Number(r.rating) || 0, comment: r.review_text || "", date: new Date(r.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }), sessionType: "Mentorship Session" })); }
-export async function fetchMentorEarningsFromDb(mentorId: string): Promise<MentorEarnings> { const rows = (await supabase.from("bookings").select("id,student_id,session_type,amount,price,status,created_at").eq("mentor_id", mentorId).order("created_at", { ascending: false })).data || []; const completed = rows.filter((r: any) => r.status === "completed"); const pending = rows.filter((r: any) => r.status === "confirmed"); const ids = [...new Set(rows.map((r: any) => r.student_id).filter(Boolean))]; const ps = ids.length ? ((await supabase.from("profiles").select("id,full_name").in("id", ids)).data || []) : []; const pm = new Map(ps.map((p: any) => [p.id, p.full_name])); const value = (r: any) => Number(r.amount) || Number(String(r.price || "").replace(/[^0-9.]/g, "")) || 0; const total = completed.reduce((s: number, r: any) => s + value(r), 0); const pend = pending.reduce((s: number, r: any) => s + value(r), 0); return { totalEarned: total, pendingPayout: pend, completedSessionsCount: completed.length, avgPerSession: completed.length ? Math.round(total / completed.length) : 0, currency: "INR", payoutMethod: "Not configured", history: rows.slice(0, 20).map((r: any) => ({ id: String(r.id), date: new Date(r.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }), sessionTitle: r.session_type || "Mentorship Session", menteeName: pm.get(r.student_id) || "Student", amount: value(r), status: r.status === "completed" ? "Paid" : "Pending" })) }; }
+export async function fetchMentorEarningsFromDb(mentorId: string): Promise<MentorEarnings> {
+  const rows = (await supabase.from("bookings").select("id,student_id,session_type,amount,price,status,created_at").eq("mentor_id", mentorId).order("created_at", { ascending: false })).data || [];
+  const completed = rows.filter((r: any) => r.status === "completed");
+  const confirmed = rows.filter((r: any) => r.status === "confirmed");
+  const ids = [...new Set(rows.map((r: any) => r.student_id).filter(Boolean))];
+  const ps = ids.length ? ((await supabase.from("profiles").select("id,full_name").in("id", ids)).data || []) : [];
+  const pm = new Map(ps.map((p: any) => [p.id, p.full_name]));
+  const value = (r: any) => Number(r.amount) || Number(String(r.price || "").replace(/[^0-9.]/g, "")) || 0;
+
+  if (completed.length) {
+    for (const b of completed) {
+      await supabase.from("mentor_earnings").upsert({
+        mentor_id: mentorId, booking_id: b.id, gross_amount: value(b), platform_fee: 0, net_amount: value(b), currency: "INR", status: "pending"
+      }, { onConflict: "booking_id" });
+    }
+  }
+  const earnings = (await supabase.from("mentor_earnings").select("booking_id,net_amount,status,created_at").eq("mentor_id", mentorId).order("created_at", { ascending: false })).data || [];
+  const earningByBooking = new Map(earnings.map((e: any) => [e.booking_id, e]));
+  const total = completed.reduce((s: number, r: any) => s + value(r), 0);
+  const pending = confirmed.reduce((s: number, r: any) => s + value(r), 0) + earnings.filter((e: any) => e.status === "pending").reduce((s: number, e: any) => s + Number(e.net_amount || 0), 0);
+
+  return {
+    totalEarned: total,
+    pendingPayout: pending,
+    completedSessionsCount: completed.length,
+    avgPerSession: completed.length ? Math.round(total / completed.length) : 0,
+    currency: "INR",
+    payoutMethod: "Not configured",
+    history: rows.slice(0, 20).map((r: any) => {
+      const e = earningByBooking.get(r.id);
+      return {
+        id: String(r.id),
+        date: new Date(r.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+        sessionTitle: r.session_type || "Mentorship Session",
+        menteeName: pm.get(r.student_id) || "Student",
+        amount: value(r),
+        status: e?.status === "paid" ? "Paid" : "Pending",
+      };
+    }),
+  };
+}
+
 export async function updateMentorProfileInDb(
   mentorId: string,
   patch: Partial<MentorProfileData>
