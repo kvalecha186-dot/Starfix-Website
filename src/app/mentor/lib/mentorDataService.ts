@@ -517,10 +517,31 @@ export async function updateMentorSessionInDb(sessionId: string, patch: Partial<
   } catch { return false; }
 }
 
+function parseMentorDateTime(dateLabel: string, timeLabel: string): Date {
+  const d = new Date();
+  const lower = String(dateLabel || "").toLowerCase();
+  if (lower.includes("tomorrow")) d.setDate(d.getDate() + 1);
+  else if (lower.includes("today")) { /* keep today */ }
+  else {
+    const parsed = new Date(dateLabel);
+    if (!Number.isNaN(parsed.getTime())) d.setTime(parsed.getTime());
+  }
+  const m = String(timeLabel || "").match(/(\\d{1,2})(?::(\\d{2}))?\\s*(am|pm)?/i);
+  let hour = Number(m?.[1] || 18);
+  const minute = Number(m?.[2] || 0);
+  const ap = String(m?.[3] || "").toLowerCase();
+  if (ap === "pm" && hour < 12) hour += 12;
+  if (ap === "am" && hour === 12) hour = 0;
+  d.setHours(hour, minute, 0, 0);
+  return d;
+}
+
 export async function createMentorSessionInDb(mentorId: string, legacyId: number | undefined, session: Omit<MentorSession, "id" | "createdAt">): Promise<MentorSession | null> {
   const studentId = session.menteeId && session.menteeId.includes("-") ? session.menteeId : null; if (!studentId) return null;
   const amount = Number(String(session.price || "0").replace(/[^0-9.]/g, "")) || 0;
-  const r = await supabase.from("bookings").insert({ student_id: studentId, mentor_id: mentorId, mentor_num: legacyId ?? null, session_type: session.sessionType, duration: session.duration, price: session.price, amount, currency: "INR", booking_date: session.bookingDate, booking_time: session.bookingTime, notes: session.prepNotes || null, status: "confirmed" }).select("id,created_at").single();
+  const start = parseMentorDateTime(session.bookingDate, session.bookingTime);
+  const end = new Date(start.getTime() + (parseInt(String(session.duration || "45").replace(/[^0-9]/g, "")) || 45) * 60000);
+  const r = await supabase.from("bookings").insert({ student_id: studentId, mentor_id: mentorId, mentor_num: legacyId ?? null, session_type: session.sessionType, duration: session.duration, price: session.price, amount, currency: "INR", booking_date: session.bookingDate, booking_time: session.bookingTime, notes: session.prepNotes || null, scheduled_start: start.toISOString(), scheduled_end: end.toISOString(), status: "confirmed" }).select("id,created_at").single();
   if (r.error || !r.data) return null; return { ...session, id: String(r.data.id), createdAt: r.data.created_at };
 }
 
