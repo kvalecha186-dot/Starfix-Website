@@ -150,6 +150,24 @@ export async function fetchMentorsFromDb(): Promise<DbMentor[] | null> {
   }
 }
 
+export async function submitMentorReview(bookingId: string, mentorId: string, rating: number, reviewText: string): Promise<boolean> {
+  const auth = await supabase.auth.getUser();
+  const studentId = auth.data.user?.id;
+  if (!studentId || rating < 1 || rating > 5 || !reviewText.trim()) return false;
+  const { error } = await supabase.from("reviews").insert({
+    booking_id: bookingId,
+    student_id: studentId,
+    mentor_id: mentorId,
+    rating,
+    review_text: reviewText.trim(),
+  });
+  if (error) {
+    console.warn("Could not submit mentor review:", error.message);
+    return false;
+  }
+  return true;
+}
+
 /* ─── 3. BOOKINGS ──────────────────────────────────────────────────────── */
 
 const isValidUuid = (str: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
