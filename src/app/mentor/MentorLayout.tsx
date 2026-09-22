@@ -73,6 +73,7 @@ export function MentorLayout({ userProfile, onLogout, onUpdateProfile }: Props) 
 
   // Modal / inter-page state
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+  const [scheduleMenteeId, setScheduleMenteeId] = useState<string | null>(null);
   const [openMenteeMessageId, setOpenMenteeMessageId] = useState<string | null>(null);
 
   // Load initial mentor data
@@ -107,6 +108,7 @@ export function MentorLayout({ userProfile, onLogout, onUpdateProfile }: Props) 
 
   // Jump to schedule session with a specific mentee
   const handleScheduleWithMentee = (mentee: Mentee) => {
+    setScheduleMenteeId(mentee.id);
     setCurrentTab("sessions");
     setIsScheduleModalOpen(true);
     setDrawerOpen(false);
@@ -537,6 +539,7 @@ export function MentorLayout({ userProfile, onLogout, onUpdateProfile }: Props) 
                   sessions={sessions}
                   mentees={mentees}
                   mentorName={mentorObj.name}
+                  initialMenteeId={scheduleMenteeId}
                   onSessionStatusChange={handleSessionStatusChange}
                   onUpdateSession={handleUpdateSession}
                   onAddSession={handleAddSession}
