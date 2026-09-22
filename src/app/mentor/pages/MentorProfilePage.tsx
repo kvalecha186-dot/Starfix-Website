@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   User,
   Clock,
@@ -14,6 +14,11 @@ import {
   ShieldCheck,
   Wallet,
   Sparkles,
+  Calendar,
+  CalendarX,
+  X,
+  Globe,
+  Award,
 } from "lucide-react";
 import { M } from "../mentorColors";
 import { useViewport } from "../../lib/useViewport";
@@ -21,6 +26,14 @@ import type {
   MentorProfileData,
   MentorReview,
   MentorEarnings,
+  WeeklyScheduleDay,
+  BlockedDate,
+} from "../lib/mentorDataService";
+import {
+  getStoredWeeklySchedule,
+  saveWeeklySchedule,
+  getStoredBlockedDates,
+  saveBlockedDates,
 } from "../lib/mentorDataService";
 import { toast } from "sonner";
 
@@ -42,13 +55,18 @@ export function MentorProfilePage({
   const { isCompact, isMobile } = useViewport();
   const [subTab, setSubTab] = useState<"profile" | "availability" | "earnings" | "reviews">("profile");
 
-  // Local form state
+  // Local form state for Profile
   const [name, setName] = useState(mentor.name);
   const [headline, setHeadline] = useState(mentor.headline);
   const [company, setCompany] = useState(mentor.company);
   const [category, setCategory] = useState(mentor.category);
   const [yearsExperience, setYearsExperience] = useState(mentor.yearsExperience);
   const [bio, setBio] = useState(mentor.bio);
+  const [mentoringApproach, setMentoringApproach] = useState(
+    mentor.mentoringApproach || "I focus on first-principles system thinking, pragmatic code reviews, and structured mock interviews with actionable written feedback."
+  );
+  const [languages, setLanguages] = useState<string[]>(mentor.languages || ["English", "Hindi"]);
+  const [newLangInput, setNewLangInput] = useState("");
   const [price, setPrice] = useState(mentor.price);
   const [offersFreeIntro, setOffersFreeIntro] = useState(mentor.offersFreeIntro);
   const [skills, setSkills] = useState<string[]>(mentor.skills);
@@ -56,12 +74,55 @@ export function MentorProfilePage({
   const [linkedinUrl, setLinkedinUrl] = useState(mentor.linkedinUrl || "");
   const [saving, setSaving] = useState(false);
 
-  // Session offerings
-  const [sessionTypes, setSessionTypes] = useState([
-    { name: "1:1 Quick Sync & Unblocking", duration: "30 min", price: "₹1,299", includes: "Quick code/math review, specific blockers" },
-    { name: "Deep Dive Architecture Review", duration: "45 min", price: "₹2,500", includes: "System design, microservice review, next-step plan" },
-    { name: "Full Mock Interview & Feedback", duration: "60 min", price: "₹3,500", includes: "Live coding/system round, rubric evaluation" },
-  ]);
+  // Weekly Schedule & Blocked Dates State
+  const [weeklySchedule, setWeeklySchedule] = useState<WeeklyScheduleDay[]>([]);
+  const [blockedDates, setBlockedDates] = useState<BlockedDate[]>([]);
+  const [newBlockedDate, setNewBlockedDate] = useState("");
+  const [newBlockedReason, setNewBlockedReason] = useState("");
+
+  useEffect(() => {
+    setWeeklySchedule(getStoredWeeklySchedule());
+    setBlockedDates(getStoredBlockedDates());
+  }, []);
+
+  const handleToggleDay = (dayName: string) => {
+    const updated = weeklySchedule.map((d) =>
+      d.day === dayName ? { ...d, enabled: !d.enabled } : d
+    );
+    setWeeklySchedule(updated);
+    saveWeeklySchedule(updated);
+  };
+
+  const handleTimeChange = (dayName: string, field: "startTime" | "endTime", value: string) => {
+    const updated = weeklySchedule.map((d) =>
+      d.day === dayName ? { ...d, [field]: value } : d
+    );
+    setWeeklySchedule(updated);
+    saveWeeklySchedule(updated);
+  };
+
+  const handleAddBlockedDate = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newBlockedDate.trim()) return;
+    const newEntry: BlockedDate = {
+      id: `b_${Date.now()}`,
+      date: newBlockedDate.trim(),
+      reason: newBlockedReason.trim() || "Out of office / Busy",
+    };
+    const updated = [...blockedDates, newEntry];
+    setBlockedDates(updated);
+    saveBlockedDates(updated);
+    setNewBlockedDate("");
+    setNewBlockedReason("");
+    toast.success("Added blocked date.");
+  };
+
+  const handleRemoveBlockedDate = (id: string) => {
+    const updated = blockedDates.filter((b) => b.id !== id);
+    setBlockedDates(updated);
+    saveBlockedDates(updated);
+    toast.info("Removed blocked date.");
+  };
 
   const handleAddSkill = () => {
     const trimmed = newSkillInput.trim();
@@ -75,6 +136,18 @@ export function MentorProfilePage({
     setSkills(skills.filter((s) => s !== skillToRemove));
   };
 
+  const handleAddLanguage = () => {
+    const trimmed = newLangInput.trim();
+    if (trimmed && !languages.includes(trimmed)) {
+      setLanguages([...languages, trimmed]);
+      setNewLangInput("");
+    }
+  };
+
+  const handleRemoveLanguage = (lang: string) => {
+    setLanguages(languages.filter((l) => l !== lang));
+  };
+
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
@@ -85,6 +158,8 @@ export function MentorProfilePage({
       category,
       yearsExperience: Number(yearsExperience) || 5,
       bio,
+      mentoringApproach,
+      languages,
       price,
       offersFreeIntro,
       skills,
@@ -113,48 +188,50 @@ export function MentorProfilePage({
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
             <span style={{ fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.08em", color: M.gold, fontWeight: 700 }}>
-              Mentor Settings
+              Faculty Preferences
             </span>
           </div>
           <h1 style={{ fontFamily: M.serif, fontSize: "1.85rem", fontWeight: 700, color: M.text, margin: 0 }}>
             Profile & Availability
           </h1>
           <p style={{ color: M.textMuted, fontSize: "0.88rem", marginTop: 4, marginBottom: 0 }}>
-            Manage your public mentor persona, session offerings, earnings, and mentee feedback.
+            Configure your public profile, teaching philosophy, weekly schedule, blackout dates, and earnings.
           </p>
         </div>
 
-        <button
-          onClick={handleSaveProfile}
-          disabled={saving}
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 7,
-            padding: "10px 22px",
-            borderRadius: M.radiusSm,
-            background: M.gold,
-            color: "#11101a",
-            border: "none",
-            fontWeight: 700,
-            fontSize: "0.86rem",
-            cursor: saving ? "default" : "pointer",
-            fontFamily: M.sans,
-            opacity: saving ? 0.7 : 1,
-            boxShadow: "0 2px 10px rgba(212,175,55,0.25)",
-          }}
-        >
-          <Save size={15} /> {saving ? "Saving…" : "Save Changes"}
-        </button>
+        {subTab === "profile" && (
+          <button
+            onClick={handleSaveProfile}
+            disabled={saving}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 7,
+              padding: "10px 22px",
+              borderRadius: M.radiusSm,
+              background: M.gold,
+              color: "#11101a",
+              border: "none",
+              fontWeight: 700,
+              fontSize: "0.86rem",
+              cursor: saving ? "default" : "pointer",
+              fontFamily: M.sans,
+              opacity: saving ? 0.7 : 1,
+              boxShadow: "0 2px 10px rgba(212,175,55,0.25)",
+            }}
+          >
+            <Save size={15} /> {saving ? "Saving…" : "Save Profile"}
+          </button>
+        )}
       </div>
 
       {/* ── Sub Navigation Tabs ── */}
       <div style={{ display: "flex", gap: 8, borderBottom: `1px solid ${M.border}`, paddingBottom: 12, overflowX: "auto" }}>
         {[
-          { id: "profile", label: "Profile Information", icon: User },
-          { id: "availability", label: "Availability & Rates", icon: Clock },
-          { id: "earnings", label: "Earnings & Payouts", icon: Wallet },
-          { id: "reviews", label: "Reviews & Feedback", icon: Star },
+          { id: "profile", label: "Public Profile", icon: User },
+          { id: "availability", label: "Availability & Schedule", icon: Clock },
+          { id: "earnings", label: "Earnings & Payouts", icon: DollarSign },
+          { id: "reviews", label: "Mentee Reviews", icon: Star, count: reviews.length },
         ].map((tab) => {
           const active = subTab === tab.id;
           const Icon = tab.icon;
@@ -175,18 +252,32 @@ export function MentorProfilePage({
                 fontWeight: active ? 700 : 500,
                 cursor: "pointer",
                 fontFamily: M.sans,
-                whiteSpace: "nowrap",
                 transition: "all 0.16s ease",
+                whiteSpace: "nowrap",
               }}
             >
-              <Icon size={14} />
+              <Icon size={14} color={active ? M.gold : M.textMuted} />
               {tab.label}
+              {tab.count !== undefined && (
+                <span
+                  style={{
+                    fontSize: "0.72rem",
+                    padding: "1px 6px",
+                    borderRadius: 999,
+                    background: active ? M.gold : "rgba(255,255,255,0.08)",
+                    color: active ? "#11101a" : M.textFaint,
+                    fontWeight: 700,
+                  }}
+                >
+                  {tab.count}
+                </span>
+              )}
             </button>
           );
         })}
       </div>
 
-      {/* ── SubTab 1: Profile Information ── */}
+      {/* ── SubTab 1: Profile ── */}
       {subTab === "profile" && (
         <form onSubmit={handleSaveProfile} style={{ display: "flex", flexDirection: "column", gap: 20 }}>
           <div
@@ -194,18 +285,14 @@ export function MentorProfilePage({
               background: M.surface,
               border: `1px solid ${M.border}`,
               borderRadius: M.radiusLg,
-              padding: "26px 28px",
+              padding: isCompact ? "20px" : "28px",
               display: "flex",
               flexDirection: "column",
-              gap: 18,
+              gap: 20,
             }}
           >
-            <h3 style={{ fontSize: "1.05rem", fontWeight: 700, color: M.text, margin: 0 }}>
-              Basic Information
-            </h3>
-
-            {/* Name and Headline */}
-            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1.5fr", gap: 16 }}>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 18 }}>
+              {/* Full Name */}
               <div>
                 <label style={{ fontSize: "0.78rem", color: M.textMuted, fontWeight: 600, display: "block", marginBottom: 6 }}>
                   Full Name
@@ -214,7 +301,6 @@ export function MentorProfilePage({
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  required
                   style={{
                     width: "100%",
                     boxSizing: "border-box",
@@ -229,16 +315,16 @@ export function MentorProfilePage({
                 />
               </div>
 
+              {/* Company / Affiliation */}
               <div>
                 <label style={{ fontSize: "0.78rem", color: M.textMuted, fontWeight: 600, display: "block", marginBottom: 6 }}>
-                  Headline / Title
+                  Current Company / Affiliation
                 </label>
                 <input
                   type="text"
-                  value={headline}
-                  onChange={(e) => setHeadline(e.target.value)}
-                  placeholder="e.g. Senior Machine Learning Engineer at Google"
-                  required
+                  value={company}
+                  onChange={(e) => setCompany(e.target.value)}
+                  placeholder="e.g. Google, Microsoft, Starfix Faculty"
                   style={{
                     width: "100%",
                     boxSizing: "border-box",
@@ -254,41 +340,41 @@ export function MentorProfilePage({
               </div>
             </div>
 
-            {/* Company, Category, Years Experience */}
-            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr 1fr", gap: 16 }}>
-              <div>
-                <label style={{ fontSize: "0.78rem", color: M.textMuted, fontWeight: 600, display: "block", marginBottom: 6 }}>
-                  Current Company
-                </label>
-                <input
-                  type="text"
-                  value={company}
-                  onChange={(e) => setCompany(e.target.value)}
-                  placeholder="e.g. Google, Stripe, or Founder"
-                  style={{
-                    width: "100%",
-                    boxSizing: "border-box",
-                    padding: "10px 14px",
-                    borderRadius: M.radiusSm,
-                    background: M.surfaceAlt,
-                    border: `1px solid ${M.border}`,
-                    color: M.text,
-                    fontSize: "0.88rem",
-                    outline: "none",
-                  }}
-                />
-              </div>
+            {/* Professional Headline */}
+            <div>
+              <label style={{ fontSize: "0.78rem", color: M.textMuted, fontWeight: 600, display: "block", marginBottom: 6 }}>
+                Professional Headline
+              </label>
+              <input
+                type="text"
+                value={headline}
+                onChange={(e) => setHeadline(e.target.value)}
+                placeholder="e.g. Senior Distributed Systems Engineer & Career Coach"
+                style={{
+                  width: "100%",
+                  boxSizing: "border-box",
+                  padding: "10px 14px",
+                  borderRadius: M.radiusSm,
+                  background: M.surfaceAlt,
+                  border: `1px solid ${M.border}`,
+                  color: M.text,
+                  fontSize: "0.88rem",
+                  outline: "none",
+                }}
+              />
+            </div>
 
+            {/* Category & Years Experience */}
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1.2fr 1fr", gap: 18 }}>
               <div>
                 <label style={{ fontSize: "0.78rem", color: M.textMuted, fontWeight: 600, display: "block", marginBottom: 6 }}>
-                  Professional Category
+                  Primary Discipline
                 </label>
                 <select
                   value={category}
                   onChange={(e) => setCategory(e.target.value)}
                   style={{
                     width: "100%",
-                    boxSizing: "border-box",
                     padding: "10px 14px",
                     borderRadius: M.radiusSm,
                     background: M.surfaceAlt,
@@ -298,24 +384,22 @@ export function MentorProfilePage({
                     outline: "none",
                   }}
                 >
-                  {["Coding", "AI/ML", "UI/UX", "Finance", "Entrepreneurship", "Languages", "Communication"].map((c) => (
-                    <option key={c} value={c} style={{ background: "#11101a", color: "#FAF9F6" }}>
-                      {c}
-                    </option>
-                  ))}
+                  <option value="Coding">Software Engineering & Architecture</option>
+                  <option value="AI & ML">AI, Machine Learning & PyTorch</option>
+                  <option value="Cloud">Cloud, DevOps & SRE</option>
+                  <option value="Design">Product Design & Systems</option>
+                  <option value="Career">Career Placement & Mock Interviews</option>
                 </select>
               </div>
 
               <div>
                 <label style={{ fontSize: "0.78rem", color: M.textMuted, fontWeight: 600, display: "block", marginBottom: 6 }}>
-                  Years of Experience
+                  Years of Industry Experience
                 </label>
                 <input
                   type="number"
                   value={yearsExperience}
                   onChange={(e) => setYearsExperience(Number(e.target.value))}
-                  min={1}
-                  max={40}
                   style={{
                     width: "100%",
                     boxSizing: "border-box",
@@ -331,16 +415,16 @@ export function MentorProfilePage({
               </div>
             </div>
 
-            {/* Bio */}
+            {/* Public Bio */}
             <div>
               <label style={{ fontSize: "0.78rem", color: M.textMuted, fontWeight: 600, display: "block", marginBottom: 6 }}>
-                Mentor Bio / About
+                Public Bio & Background
               </label>
               <textarea
+                rows={3}
                 value={bio}
                 onChange={(e) => setBio(e.target.value)}
-                rows={4}
-                placeholder="Describe your background, areas of expertise, and how you guide students..."
+                placeholder="Introduce your engineering background and what mentees can expect to gain from working with you…"
                 style={{
                   width: "100%",
                   boxSizing: "border-box",
@@ -350,7 +434,6 @@ export function MentorProfilePage({
                   border: `1px solid ${M.border}`,
                   color: M.text,
                   fontSize: "0.88rem",
-                  fontFamily: M.sans,
                   lineHeight: 1.5,
                   outline: "none",
                   resize: "vertical",
@@ -358,10 +441,110 @@ export function MentorProfilePage({
               />
             </div>
 
-            {/* Skills tags */}
+            {/* Mentoring Approach & Philosophy */}
             <div>
               <label style={{ fontSize: "0.78rem", color: M.textMuted, fontWeight: 600, display: "block", marginBottom: 6 }}>
-                Expertise & Skills
+                Mentoring Approach & Philosophy
+              </label>
+              <textarea
+                rows={3}
+                value={mentoringApproach}
+                onChange={(e) => setMentoringApproach(e.target.value)}
+                placeholder="Describe your pedagogical philosophy (e.g., first-principles thinking, live coding walkthroughs, mock interviews with rubric scoring)…"
+                style={{
+                  width: "100%",
+                  boxSizing: "border-box",
+                  padding: "12px 14px",
+                  borderRadius: M.radiusSm,
+                  background: M.surfaceAlt,
+                  border: `1px solid ${M.border}`,
+                  color: M.text,
+                  fontSize: "0.88rem",
+                  lineHeight: 1.5,
+                  outline: "none",
+                  resize: "vertical",
+                }}
+              />
+            </div>
+
+            {/* Languages Spoken */}
+            <div>
+              <label style={{ fontSize: "0.78rem", color: M.textMuted, fontWeight: 600, display: "block", marginBottom: 6 }}>
+                Languages Spoken
+              </label>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
+                {languages.map((lang) => (
+                  <span
+                    key={lang}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 6,
+                      padding: "4px 10px",
+                      borderRadius: M.radiusPill,
+                      background: M.goldBg,
+                      border: `1px solid ${M.goldBorder}`,
+                      color: M.gold,
+                      fontSize: "0.78rem",
+                    }}
+                  >
+                    <Globe size={11} />
+                    {lang}
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveLanguage(lang)}
+                      style={{ background: "none", border: "none", color: M.gold, cursor: "pointer", padding: 0, display: "flex" }}
+                    >
+                      <X size={12} />
+                    </button>
+                  </span>
+                ))}
+              </div>
+              <div style={{ display: "flex", gap: 8, maxWidth: 360 }}>
+                <input
+                  type="text"
+                  value={newLangInput}
+                  onChange={(e) => setNewLangInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleAddLanguage();
+                    }
+                  }}
+                  placeholder="Add language (e.g. English, French)…"
+                  style={{
+                    flex: 1,
+                    padding: "8px 12px",
+                    borderRadius: M.radiusSm,
+                    background: M.surfaceAlt,
+                    border: `1px solid ${M.border}`,
+                    color: M.text,
+                    fontSize: "0.84rem",
+                    outline: "none",
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={handleAddLanguage}
+                  style={{
+                    padding: "8px 14px",
+                    borderRadius: M.radiusSm,
+                    background: "rgba(255,255,255,0.06)",
+                    border: `1px solid ${M.border}`,
+                    color: M.text,
+                    fontSize: "0.82rem",
+                    cursor: "pointer",
+                  }}
+                >
+                  Add
+                </button>
+              </div>
+            </div>
+
+            {/* Skills & Expertise Tags */}
+            <div>
+              <label style={{ fontSize: "0.78rem", color: M.textMuted, fontWeight: 600, display: "block", marginBottom: 6 }}>
+                Technical Skills & Focus Areas
               </label>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
                 {skills.map((skill) => (
@@ -373,26 +556,24 @@ export function MentorProfilePage({
                       gap: 6,
                       padding: "4px 10px",
                       borderRadius: M.radiusPill,
-                      background: M.goldBg,
-                      border: `1px solid ${M.goldBorder}`,
-                      color: M.goldLight,
+                      background: "rgba(255,255,255,0.06)",
+                      border: `1px solid ${M.border}`,
+                      color: M.text,
                       fontSize: "0.78rem",
-                      fontWeight: 600,
                     }}
                   >
                     {skill}
                     <button
                       type="button"
                       onClick={() => handleRemoveSkill(skill)}
-                      style={{ background: "none", border: "none", color: M.gold, cursor: "pointer", padding: 0, fontSize: "0.8rem" }}
+                      style={{ background: "none", border: "none", color: M.textFaint, cursor: "pointer", padding: 0, display: "flex" }}
                     >
-                      ×
+                      <X size={12} />
                     </button>
                   </span>
                 ))}
               </div>
-
-              <div style={{ display: "flex", gap: 8, maxWidth: 420 }}>
+              <div style={{ display: "flex", gap: 8, maxWidth: 360 }}>
                 <input
                   type="text"
                   value={newSkillInput}
@@ -403,7 +584,7 @@ export function MentorProfilePage({
                       handleAddSkill();
                     }
                   }}
-                  placeholder="Add a skill (e.g. Distributed Systems)…"
+                  placeholder="Add a skill (e.g. Distributed Consensus)…"
                   style={{
                     flex: 1,
                     padding: "8px 12px",
@@ -425,7 +606,6 @@ export function MentorProfilePage({
                     border: `1px solid ${M.border}`,
                     color: M.text,
                     fontSize: "0.82rem",
-                    fontWeight: 600,
                     cursor: "pointer",
                   }}
                 >
@@ -461,9 +641,9 @@ export function MentorProfilePage({
         </form>
       )}
 
-      {/* ── SubTab 2: Availability & Rates ── */}
+      {/* ── SubTab 2: Availability & Weekly Schedule ── */}
       {subTab === "availability" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
           {/* Availability Status Card */}
           <div
             style={{
@@ -529,13 +709,13 @@ export function MentorProfilePage({
             }}
           >
             <h3 style={{ fontSize: "1.05rem", fontWeight: 700, color: M.text, margin: 0 }}>
-              Session Pricing & Policy
+              Session Pricing & Intro Policy
             </h3>
 
             <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16 }}>
               <div>
                 <label style={{ fontSize: "0.78rem", color: M.textMuted, fontWeight: 600, display: "block", marginBottom: 6 }}>
-                  Default Session Rate (INR)
+                  Default 45-Min Session Rate (INR)
                 </label>
                 <input
                   type="text"
@@ -593,105 +773,286 @@ export function MentorProfilePage({
                 </button>
               </div>
             </div>
-
-            {/* Session Offerings Cards */}
-            <div style={{ marginTop: 12 }}>
-              <div style={{ fontSize: "0.84rem", fontWeight: 700, color: M.gold, marginBottom: 10 }}>
-                Configured Session Offerings
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: isCompact ? "1fr" : "repeat(3, 1fr)", gap: 14 }}>
-                {sessionTypes.map((st, i) => (
-                  <div
-                    key={i}
-                    style={{
-                      background: M.surfaceAlt,
-                      border: `1px solid ${M.borderSubtle}`,
-                      borderRadius: M.radius,
-                      padding: "16px 18px",
-                    }}
-                  >
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                      <span style={{ fontWeight: 700, fontSize: "0.92rem", color: M.text }}>{st.name}</span>
-                      <span style={{ color: M.gold, fontWeight: 700, fontSize: "0.88rem" }}>{st.price}</span>
-                    </div>
-                    <div style={{ fontSize: "0.76rem", color: M.textFaint, marginTop: 4 }}>
-                      Duration: {st.duration}
-                    </div>
-                    <p style={{ color: M.textMuted, fontSize: "0.8rem", marginTop: 8, lineHeight: 1.4 }}>
-                      {st.includes}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── SubTab 3: Earnings & Payouts (Secondary Area as requested) ── */}
-      {subTab === "earnings" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-          {/* Earnings Overview Cards */}
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: isMobile ? "1fr" : isCompact ? "repeat(2, 1fr)" : "repeat(4, 1fr)",
-              gap: 16,
-            }}
-          >
-            <div style={{ background: M.surface, border: `1px solid ${M.border}`, borderRadius: M.radius, padding: "18px 20px" }}>
-              <div style={{ color: M.textMuted, fontSize: "0.78rem" }}>Total Revenue Earned</div>
-              <div style={{ fontSize: "1.75rem", fontWeight: 700, color: M.text, marginTop: 6 }}>
-                ₹{earnings.totalEarned.toLocaleString()}
-              </div>
-              <div style={{ color: M.green, fontSize: "0.74rem", marginTop: 4 }}>All-time mentorship fees</div>
-            </div>
-
-            <div style={{ background: M.surface, border: `1px solid ${M.border}`, borderRadius: M.radius, padding: "18px 20px" }}>
-              <div style={{ color: M.textMuted, fontSize: "0.78rem" }}>Pending Next Payout</div>
-              <div style={{ fontSize: "1.75rem", fontWeight: 700, color: M.gold, marginTop: 6 }}>
-                ₹{earnings.pendingPayout.toLocaleString()}
-              </div>
-              <div style={{ color: M.textFaint, fontSize: "0.74rem", marginTop: 4 }}>Processing for Sep 25</div>
-            </div>
-
-            <div style={{ background: M.surface, border: `1px solid ${M.border}`, borderRadius: M.radius, padding: "18px 20px" }}>
-              <div style={{ color: M.textMuted, fontSize: "0.78rem" }}>Completed Sessions</div>
-              <div style={{ fontSize: "1.75rem", fontWeight: 700, color: M.text, marginTop: 6 }}>
-                {earnings.completedSessionsCount}
-              </div>
-              <div style={{ color: M.textFaint, fontSize: "0.74rem", marginTop: 4 }}>100% fulfillment rate</div>
-            </div>
-
-            <div style={{ background: M.surface, border: `1px solid ${M.border}`, borderRadius: M.radius, padding: "18px 20px" }}>
-              <div style={{ color: M.textMuted, fontSize: "0.78rem" }}>Average Fee / Session</div>
-              <div style={{ fontSize: "1.75rem", fontWeight: 700, color: M.text, marginTop: 6 }}>
-                ₹{earnings.avgPerSession.toLocaleString()}
-              </div>
-              <div style={{ color: M.textFaint, fontSize: "0.74rem", marginTop: 4 }}>Net mentor payout</div>
-            </div>
           </div>
 
-          {/* Payout Details & Transaction History */}
+          {/* Interactive Weekly Schedule Manager */}
           <div
             style={{
               background: M.surface,
               border: `1px solid ${M.border}`,
               borderRadius: M.radiusLg,
               padding: "24px 28px",
+              display: "flex",
+              flexDirection: "column",
+              gap: 16,
             }}
           >
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <div>
                 <h3 style={{ fontSize: "1.05rem", fontWeight: 700, color: M.text, margin: 0 }}>
-                  Payout Activity History
+                  Weekly Coaching Schedule
                 </h3>
                 <p style={{ color: M.textMuted, fontSize: "0.82rem", margin: "4px 0 0" }}>
-                  Destination: <strong style={{ color: M.goldLight }}>{earnings.payoutMethod}</strong>
+                  Set your standard availability window for each day of the week.
                 </p>
+              </div>
+              <span style={{ fontSize: "0.76rem", color: M.green, fontWeight: 600 }}>
+                ● Auto-saved
+              </span>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {weeklySchedule.map((dayItem) => (
+                <div
+                  key={dayItem.day}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    padding: "12px 16px",
+                    borderRadius: M.radiusSm,
+                    background: dayItem.enabled ? M.surfaceAlt : "rgba(255,255,255,0.015)",
+                    border: `1px solid ${dayItem.enabled ? M.borderSubtle : M.border}`,
+                    flexWrap: "wrap",
+                    gap: 12,
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 140 }}>
+                    <button
+                      type="button"
+                      onClick={() => handleToggleDay(dayItem.day)}
+                      style={{
+                        width: 20,
+                        height: 20,
+                        borderRadius: 5,
+                        border: `1.5px solid ${dayItem.enabled ? M.gold : M.border}`,
+                        background: dayItem.enabled ? M.gold : "transparent",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        cursor: "pointer",
+                      }}
+                    >
+                      {dayItem.enabled && <Check size={13} color="#11101a" />}
+                    </button>
+                    <span style={{ fontWeight: 600, fontSize: "0.88rem", color: dayItem.enabled ? M.text : M.textFaint }}>
+                      {dayItem.day}
+                    </span>
+                  </div>
+
+                  {dayItem.enabled ? (
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <input
+                        type="text"
+                        value={dayItem.startTime}
+                        onChange={(e) => handleTimeChange(dayItem.day, "startTime", e.target.value)}
+                        style={{
+                          width: 100,
+                          padding: "6px 10px",
+                          borderRadius: M.radiusSm,
+                          background: M.surface,
+                          border: `1px solid ${M.border}`,
+                          color: M.text,
+                          fontSize: "0.82rem",
+                          textAlign: "center",
+                        }}
+                      />
+                      <span style={{ color: M.textFaint, fontSize: "0.8rem" }}>to</span>
+                      <input
+                        type="text"
+                        value={dayItem.endTime}
+                        onChange={(e) => handleTimeChange(dayItem.day, "endTime", e.target.value)}
+                        style={{
+                          width: 100,
+                          padding: "6px 10px",
+                          borderRadius: M.radiusSm,
+                          background: M.surface,
+                          border: `1px solid ${M.border}`,
+                          color: M.text,
+                          fontSize: "0.82rem",
+                          textAlign: "center",
+                        }}
+                      />
+                    </div>
+                  ) : (
+                    <span style={{ fontSize: "0.8rem", color: M.textFaint, fontStyle: "italic" }}>
+                      Unavailable
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Blocked Dates & Vacation Manager */}
+          <div
+            style={{
+              background: M.surface,
+              border: `1px solid ${M.border}`,
+              borderRadius: M.radiusLg,
+              padding: "24px 28px",
+              display: "flex",
+              flexDirection: "column",
+              gap: 16,
+            }}
+          >
+            <div>
+              <h3 style={{ fontSize: "1.05rem", fontWeight: 700, color: M.text, margin: 0 }}>
+                Blocked Dates & Vacations
+              </h3>
+              <p style={{ color: M.textMuted, fontSize: "0.82rem", margin: "4px 0 0" }}>
+                Add specific dates when you will be unavailable for bookings.
+              </p>
+            </div>
+
+            <form onSubmit={handleAddBlockedDate} style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <input
+                type="text"
+                value={newBlockedDate}
+                onChange={(e) => setNewBlockedDate(e.target.value)}
+                placeholder="Date (e.g. 2026-10-15 or Oct 15)…"
+                style={{
+                  width: 200,
+                  padding: "8px 12px",
+                  borderRadius: M.radiusSm,
+                  background: M.surfaceAlt,
+                  border: `1px solid ${M.border}`,
+                  color: M.text,
+                  fontSize: "0.84rem",
+                  outline: "none",
+                }}
+              />
+              <input
+                type="text"
+                value={newBlockedReason}
+                onChange={(e) => setNewBlockedReason(e.target.value)}
+                placeholder="Reason (e.g. Conference, Out of Town)…"
+                style={{
+                  flex: 1,
+                  minWidth: 220,
+                  padding: "8px 12px",
+                  borderRadius: M.radiusSm,
+                  background: M.surfaceAlt,
+                  border: `1px solid ${M.border}`,
+                  color: M.text,
+                  fontSize: "0.84rem",
+                  outline: "none",
+                }}
+              />
+              <button
+                type="submit"
+                disabled={!newBlockedDate.trim()}
+                style={{
+                  padding: "8px 16px",
+                  borderRadius: M.radiusSm,
+                  background: newBlockedDate.trim() ? M.gold : "rgba(255,255,255,0.06)",
+                  border: "none",
+                  color: newBlockedDate.trim() ? "#11101a" : M.textFaint,
+                  fontWeight: 700,
+                  fontSize: "0.82rem",
+                  cursor: newBlockedDate.trim() ? "pointer" : "default",
+                }}
+              >
+                Add Date
+              </button>
+            </form>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {blockedDates.map((entry) => (
+                <div
+                  key={entry.id}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    padding: "10px 14px",
+                    borderRadius: M.radiusSm,
+                    background: M.surfaceAlt,
+                    border: `1px solid ${M.borderSubtle}`,
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <CalendarX size={14} color={M.gold} />
+                    <span style={{ fontWeight: 600, fontSize: "0.86rem", color: M.text }}>
+                      {entry.date}
+                    </span>
+                    <span style={{ color: M.textFaint, fontSize: "0.78rem" }}>
+                      — {entry.reason}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveBlockedDate(entry.id)}
+                    style={{ background: "none", border: "none", color: M.textFaint, cursor: "pointer" }}
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── SubTab 3: Earnings & Payouts ── */}
+      {subTab === "earnings" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          {/* Earnings Overview Cards */}
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3, 1fr)", gap: 16 }}>
+            <div style={{ background: M.surface, border: `1px solid ${M.border}`, borderRadius: M.radius, padding: "20px 22px" }}>
+              <div style={{ fontSize: "0.78rem", color: M.textFaint, textTransform: "uppercase" }}>Total Earned</div>
+              <div style={{ fontSize: "1.9rem", fontWeight: 700, color: M.gold, marginTop: 6 }}>
+                ₹{earnings.totalEarned.toLocaleString()}
+              </div>
+              <div style={{ fontSize: "0.76rem", color: M.green, marginTop: 4 }}>
+                19 Completed Sessions
               </div>
             </div>
 
+            <div style={{ background: M.surface, border: `1px solid ${M.border}`, borderRadius: M.radius, padding: "20px 22px" }}>
+              <div style={{ fontSize: "0.78rem", color: M.textFaint, textTransform: "uppercase" }}>Pending Payout</div>
+              <div style={{ fontSize: "1.9rem", fontWeight: 700, color: M.text, marginTop: 6 }}>
+                ₹{earnings.pendingPayout.toLocaleString()}
+              </div>
+              <div style={{ fontSize: "0.76rem", color: M.textMuted, marginTop: 4 }}>
+                Scheduled for Sep 25
+              </div>
+            </div>
+
+            <div style={{ background: M.surface, border: `1px solid ${M.border}`, borderRadius: M.radius, padding: "20px 22px" }}>
+              <div style={{ fontSize: "0.78rem", color: M.textFaint, textTransform: "uppercase" }}>Avg per Session</div>
+              <div style={{ fontSize: "1.9rem", fontWeight: 700, color: M.text, marginTop: 6 }}>
+                ₹{earnings.avgPerSession.toLocaleString()}
+              </div>
+              <div style={{ fontSize: "0.76rem", color: M.goldLight, marginTop: 4 }}>
+                Starfix Faculty Tier
+              </div>
+            </div>
+          </div>
+
+          {/* Payout Destination */}
+          <div style={{ background: M.surface, border: `1px solid ${M.border}`, borderRadius: M.radius, padding: "18px 22px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <Wallet size={20} color={M.gold} />
+              <div>
+                <div style={{ fontWeight: 600, fontSize: "0.9rem", color: M.text }}>
+                  Payout Destination
+                </div>
+                <div style={{ color: M.textFaint, fontSize: "0.78rem", marginTop: 2 }}>
+                  {earnings.payoutMethod}
+                </div>
+              </div>
+            </div>
+            <span style={{ fontSize: "0.74rem", padding: "3px 8px", borderRadius: M.radiusPill, background: M.greenBg, color: M.green, fontWeight: 700 }}>
+              Verified
+            </span>
+          </div>
+
+          {/* Transaction History */}
+          <div style={{ background: M.surface, border: `1px solid ${M.border}`, borderRadius: M.radiusLg, padding: "24px 26px" }}>
+            <h3 style={{ fontSize: "1.05rem", fontWeight: 700, color: M.text, margin: "0 0 16px" }}>
+              Recent Payout History
+            </h3>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {earnings.history.map((tx) => (
                 <div
@@ -700,32 +1061,25 @@ export function MentorProfilePage({
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "space-between",
-                    padding: "14px 16px",
+                    padding: "12px 14px",
                     borderRadius: M.radiusSm,
                     background: M.surfaceAlt,
                     border: `1px solid ${M.borderSubtle}`,
                   }}
                 >
                   <div>
-                    <div style={{ fontWeight: 600, fontSize: "0.9rem", color: M.text }}>
+                    <div style={{ fontWeight: 600, fontSize: "0.88rem", color: M.text }}>
                       {tx.sessionTitle}
                     </div>
-                    <div style={{ color: M.textFaint, fontSize: "0.78rem", marginTop: 2 }}>
+                    <div style={{ fontSize: "0.74rem", color: M.textFaint, marginTop: 2 }}>
                       {tx.menteeName} · {tx.date}
                     </div>
                   </div>
-
                   <div style={{ textAlign: "right" }}>
-                    <div style={{ fontWeight: 700, fontSize: "0.96rem", color: M.text }}>
-                      +₹{tx.amount.toLocaleString()}
+                    <div style={{ fontWeight: 700, fontSize: "0.92rem", color: M.gold }}>
+                      ₹{tx.amount.toLocaleString()}
                     </div>
-                    <span
-                      style={{
-                        fontSize: "0.72rem",
-                        fontWeight: 700,
-                        color: tx.status === "Paid" ? M.green : M.gold,
-                      }}
-                    >
+                    <span style={{ fontSize: "0.7rem", color: tx.status === "Paid" ? M.green : M.amber }}>
                       {tx.status}
                     </span>
                   </div>
@@ -736,47 +1090,37 @@ export function MentorProfilePage({
         </div>
       )}
 
-      {/* ── SubTab 4: Reviews & Feedback (Secondary Area as requested) ── */}
+      {/* ── SubTab 4: Mentee Reviews ── */}
       {subTab === "reviews" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-          {/* Rating Summary Card */}
-          <div
-            style={{
-              background: M.surface,
-              border: `1px solid ${M.border}`,
-              borderRadius: M.radiusLg,
-              padding: "24px 28px",
-              display: "flex",
-              alignItems: "center",
-              gap: 28,
-            }}
-          >
-            <div style={{ textAlign: "center", paddingRight: 28, borderRight: `1px solid ${M.border}` }}>
-              <div style={{ fontSize: "3rem", fontWeight: 700, fontFamily: M.sans, color: M.gold, lineHeight: 1 }}>
+          {/* Review Stats */}
+          <div style={{ background: M.surface, border: `1px solid ${M.border}`, borderRadius: M.radiusLg, padding: "24px 28px", display: "flex", alignItems: "center", gap: 24 }}>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", borderRight: `1px solid ${M.borderSubtle}`, paddingRight: 24 }}>
+              <span style={{ fontFamily: M.sans, fontSize: "2.8rem", fontWeight: 700, color: M.gold }}>
                 {mentor.rating.toFixed(1)}
-              </div>
-              <div style={{ display: "flex", gap: 3, justifyContent: "center", margin: "8px 0" }}>
+              </span>
+              <div style={{ display: "flex", gap: 3, margin: "4px 0" }}>
                 {[1, 2, 3, 4, 5].map((s) => (
-                  <Star key={s} size={15} color={M.gold} fill={M.gold} />
+                  <Star key={s} size={16} color={M.gold} fill={M.gold} />
                 ))}
               </div>
-              <div style={{ fontSize: "0.76rem", color: M.textFaint }}>
-                {mentor.totalReviews} Total Reviews
-              </div>
+              <span style={{ fontSize: "0.76rem", color: M.textFaint }}>
+                {mentor.totalReviews} verified reviews
+              </span>
             </div>
 
             <div>
-              <h3 style={{ fontSize: "1.05rem", fontWeight: 700, color: M.text, margin: "0 0 6px" }}>
-                Student Satisfaction
+              <h3 style={{ fontSize: "1.1rem", fontWeight: 700, color: M.text, margin: 0 }}>
+                Exceptional Faculty Standing
               </h3>
-              <p style={{ color: M.textMuted, fontSize: "0.85rem", margin: 0, maxWidth: 500 }}>
-                100% of mentees rated your 1:1 sessions as highly impactful. Ratings contribute directly to your search ranking in the mentor directory.
+              <p style={{ color: M.textMuted, fontSize: "0.85rem", marginTop: 4, lineHeight: 1.5 }}>
+                100% of your mentees rated their sessions 5 stars. Your detailed feedback and system architecture guidance are widely praised.
               </p>
             </div>
           </div>
 
-          {/* Testimonial Cards */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          {/* Reviews List */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             {reviews.map((rev) => (
               <div
                 key={rev.id}
@@ -784,45 +1128,28 @@ export function MentorProfilePage({
                   background: M.surface,
                   border: `1px solid ${M.border}`,
                   borderRadius: M.radius,
-                  padding: "20px 22px",
+                  padding: "18px 22px",
                 }}
               >
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <div
-                      style={{
-                        width: 36,
-                        height: 36,
-                        borderRadius: "50%",
-                        background: M.goldBg,
-                        color: M.gold,
-                        fontWeight: 700,
-                        fontSize: "0.84rem",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      {rev.menteeName[0]}
-                    </div>
-                    <div>
-                      <div style={{ fontWeight: 700, fontSize: "0.92rem", color: M.text }}>
-                        {rev.menteeName}
-                      </div>
-                      <div style={{ fontSize: "0.76rem", color: M.textFaint }}>
-                        {rev.sessionType} · {rev.date}
-                      </div>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontWeight: 700, fontSize: "0.92rem", color: M.text }}>
+                      {rev.menteeName}
+                    </span>
+                    <div style={{ display: "flex", gap: 2 }}>
+                      {[1, 2, 3, 4, 5].map((s) => (
+                        <Star key={s} size={12} color={M.gold} fill={M.gold} />
+                      ))}
                     </div>
                   </div>
-
-                  <div style={{ display: "flex", gap: 2 }}>
-                    {[...Array(rev.rating)].map((_, i) => (
-                      <Star key={i} size={14} color={M.gold} fill={M.gold} />
-                    ))}
-                  </div>
+                  <span style={{ fontSize: "0.74rem", color: M.textFaint }}>{rev.date}</span>
                 </div>
 
-                <p style={{ color: M.textMuted, fontSize: "0.86rem", lineHeight: 1.5, margin: 0 }}>
+                <div style={{ fontSize: "0.74rem", color: M.goldLight, marginBottom: 8 }}>
+                  {rev.sessionType}
+                </div>
+
+                <p style={{ color: M.textMuted, fontSize: "0.85rem", margin: 0, lineHeight: 1.5, fontStyle: "italic" }}>
                   "{rev.comment}"
                 </p>
               </div>
