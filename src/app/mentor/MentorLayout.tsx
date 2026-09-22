@@ -133,13 +133,38 @@ export function MentorLayout({ userProfile, onLogout, onUpdateProfile }: Props) 
   };
 
   // Add new session
-  const handleAddSession = (newSession: Omit<MentorSession, "id" | "createdAt">) => {
-    const sessionObj: MentorSession = {
-      ...newSession,
-      id: `sess_${Date.now()}`,
-      createdAt: new Date().toISOString(),
-    };
-    setSessions((prev) => [sessionObj, ...prev]);
+  const handleAddSession = async (newSession: Omit<MentorSession, "id" | "createdAt">) => {
+    if (!mentor) return;
+    const created = await createMentorSessionInDb(mentor.id, mentor.legacyId, newSession);
+    if (!created) {
+      toast.error("Could not create the session. The student must be a real Starfix account.");
+      return;
+    }
+    setSessions((prev) => [created, ...prev]);
+    toast.success("Session saved to Starfix.");
+  };
+
+  const handleUpdateMentee = async (menteeId: string, patch: Partial<Mentee>) => {
+    setMentees((prev) => prev.map((m) => m.id === menteeId ? { ...m, ...patch } : m));
+    if (!mentor) return;
+    const tasks: Promise<boolean>[] = [];
+    if (patch.notes !== undefined) tasks.push(saveMentorNoteToDb(mentor.id, menteeId, patch.notes));
+    if (patch.goals) {
+      for (const goal of patch.goals) {
+        tasks.push(goal.id.includes("-") ? updateMentorGoalInDb(mentor.id, menteeId, goal) : saveMentorGoalToDb(mentor.id, menteeId, goal));
+      }
+    }
+    if (patch.feedbackHistory?.length) tasks.push(saveMentorFeedbackToDb(mentor.id, menteeId, patch.feedbackHistory[0]));
+    if (patch.recommendedResources?.length) tasks.push(saveSharedResourceToDb(mentor.id, menteeId, patch.recommendedResources[0]));
+    if (patch.allMilestones && patch.pathId) tasks.push(saveMenteeMilestonesToDb(menteeId, patch.pathId, patch.allMilestones));
+    const results = await Promise.all(tasks);
+    if (results.some((ok) => !ok)) toast.error("Some mentor data could not be saved.");
+  };
+
+  const handleUpdateSession = async (sessionId: string, patch: Partial<MentorSession>) => {
+    setSessions((prev) => prev.map((s) => s.id === sessionId ? { ...s, ...patch } : s));
+    const ok = await updateMentorSessionInDb(sessionId, patch);
+    if (!ok) toast.error("Could not save session follow-up.");
   };
 
   // Update mentor profile. Splits the patch three ways: known `mentors`
