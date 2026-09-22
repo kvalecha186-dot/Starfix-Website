@@ -452,6 +452,63 @@ export async function saveMenteeMilestonesToDb(studentId: string, pathId: string
   } catch { return false; }
 }
 
+export interface MentorChatThread {
+  conversationId: string;
+  studentId: string;
+  studentName: string;
+  studentEmail?: string;
+  careerGoal?: string;
+  messages: { id: string; senderId: string; sender: "mentor" | "student"; text: string; sentAt: string; status?: string }[];
+  unreadCount: number;
+}
+
+export async function fetchMentorConversations(mentorId: string): Promise<MentorChatThread[]> {
+  const { data: conversations } = await supabase
+    .from("conversations")
+    .select("id,student_id,created_at")
+    .eq("mentor_id", mentorId)
+    .eq("archived", false)
+    .order("created_at", { ascending: false });
+  if (!conversations?.length) return [];
+  const studentIds = [...new Set(conversations.map((c: any) => c.student_id).filter(Boolean))];
+  const profiles = studentIds.length
+    ? ((await supabase.from("profiles").select("id,full_name,email,career_goal").in("id", studentIds)).data || [])
+    : [];
+  const pm = new Map(profiles.map((p: any) => [p.id, p]));
+  const ids = conversations.map((c: any) => c.id);
+  const messages = ((await supabase.from("messages").select("id,conversation_id,sender,body,status,created_at").in("conversation_id", ids).order("created_at", { ascending: true })).data || []);
+  return conversations.map((c: any) => {
+    const p = pm.get(c.student_id);
+    const ms = messages.filter((m: any) => m.conversation_id === c.id).map((m: any) => ({
+      id: String(m.id), senderId: String(m.sender), sender: String(m.sender) === mentorId ? "mentor" : "student", text: m.body || "", sentAt: m.created_at, status: m.status
+    }));
+    return { conversationId: String(c.id), studentId: c.student_id, studentName: p?.full_name || p?.email?.split("@")[0] || "Student", studentEmail: p?.email, careerGoal: p?.career_goal, messages: ms, unreadCount: ms.filter((m: any) => m.sender === "student" && m.status !== "seen").length };
+  });
+}
+
+export async function ensureMentorConversation(mentorId: string, studentId: string): Promise<string | null> {
+  const existing = (await supabase.from("conversations").select("id").eq("student_id", studentId).eq("mentor_id", mentorId).maybeSingle()).data;
+  if (existing?.id) return String(existing.id);
+  const r = await supabase.from("conversations").insert({ student_id: studentId, mentor_id: mentorId }).select("id").single();
+  return r.data?.id ? String(r.data.id) : null;
+}
+
+export async function sendMentorChatMessage(conversationId: string, text: string): Promise<boolean> {
+  const auth = await supabase.auth.getUser();
+  const senderId = auth.data.user?.id;
+  if (!senderId || !text.trim()) return false;
+  const r = await supabase.from("messages").insert({ conversation_id: conversationId, sender: senderId, body: text.trim(), status: "sent" });
+  return !r.error;
+}
+
+export async function markMentorConversationRead(conversationId: string): Promise<boolean> {
+  const auth = await supabase.auth.getUser();
+  const senderId = auth.data.user?.id;
+  if (!senderId) return false;
+  const r = await supabase.from("messages").update({ status: "seen" }).eq("conversation_id", conversationId).neq("sender", senderId);
+  return !r.error;
+}
+
 export async function saveMentorNoteToDb(mentorId: string, studentId: string, note: string): Promise<boolean> { const existing = (await supabase.from("mentor_notes").select("id").eq("mentor_id", mentorId).eq("student_id", studentId).maybeSingle()).data; const r = existing?.id ? await supabase.from("mentor_notes").update({ note, updated_at: new Date().toISOString() }).eq("id", existing.id) : await supabase.from("mentor_notes").insert({ mentor_id: mentorId, student_id: studentId, note }); return !r.error; }
 export async function saveMentorGoalToDb(mentorId: string, studentId: string, goal: MenteeGoal): Promise<boolean> { const r = await supabase.from("mentor_goals").upsert({ mentor_id: mentorId, student_id: studentId, title: goal.title, target_date: goal.targetDate || null, completed: goal.completed }, { onConflict: "mentor_id,student_id,title" }); return !r.error; }
 export async function updateMentorGoalInDb(mentorId: string, studentId: string, goal: MenteeGoal): Promise<boolean> { const r = await supabase.from("mentor_goals").update({ title: goal.title, target_date: goal.targetDate || null, completed: goal.completed, updated_at: new Date().toISOString() }).eq("id", goal.id).eq("mentor_id", mentorId).eq("student_id", studentId); return !r.error; }
