@@ -22,6 +22,106 @@ export interface MentorProfileData {
   linkedinUrl?: string;
 }
 
+export interface MentorProfileData {
+  id: string;
+  legacyId?: number;
+  name: string;
+  email: string;
+  avatarUrl?: string;
+  headline: string;
+  company: string;
+  category: string;
+  yearsExperience: number;
+  rating: number;
+  totalReviews: number;
+  skills: string[];
+  bio: string;
+  mentoringApproach?: string;
+  mentoringStyle?: string[];
+  sessionTypes?: string[];
+  targetLevel?: string;
+  areasCanHelp?: string[];
+  languages?: string[];
+  location?: string;
+  availability: string;
+  acceptingMentees: boolean;
+  offersFreeIntro: boolean;
+  price: string;
+  sessionDuration: string;
+  linkedinUrl?: string;
+  mentorSince?: string;
+}
+
+export interface MenteeMilestone {
+  id: string;
+  title: string;
+  completed: boolean;
+  current?: boolean;
+}
+
+export interface MenteeGoal {
+  id: string;
+  title: string;
+  completed: boolean;
+  targetDate?: string;
+}
+
+export interface MenteeFeedback {
+  id: string;
+  date: string;
+  content: string;
+  focus: string;
+  rating?: number;
+}
+
+export interface MenteeResource {
+  id: string;
+  title: string;
+  type: "video" | "doc" | "project" | "article";
+  url: string;
+  channelOrAuthor?: string;
+  addedAt: string;
+}
+
+export interface MenteeTimelineItem {
+  id: string;
+  date: string;
+  title: string;
+  description: string;
+  type: "milestone" | "session" | "note";
+}
+
+export interface WeeklyScheduleDay {
+  day: "Monday" | "Tuesday" | "Wednesday" | "Thursday" | "Friday" | "Saturday" | "Sunday";
+  enabled: boolean;
+  startTime: string;
+  endTime: string;
+}
+
+export interface BlockedDate {
+  id: string;
+  date: string;
+  reason: string;
+}
+
+export interface ActivityFeedItem {
+  id: string;
+  menteeName: string;
+  type: "session_booked" | "milestone_completed";
+  title: string;
+  detail: string;
+  timeAgo: string;
+}
+
+export interface MentorshipRequest {
+  id: string;
+  menteeId: string;
+  menteeName: string;
+  message?: string;
+  status: "Pending" | "Accepted" | "Declined";
+  createdAt?: string;
+}
+
 export interface Mentee {
   id: string;
   name: string;
