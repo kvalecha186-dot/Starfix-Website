@@ -429,6 +429,44 @@ export async function createMentorSessionInDb(mentorId: string, legacyId: number
   if (r.error || !r.data) return null; return { ...session, id: String(r.data.id), createdAt: r.data.created_at };
 }
 
+export async function fetchMentorScheduleFromDb(mentorId: string): Promise<{ schedule: WeeklyScheduleDay[]; blocked: BlockedDate[] }> {
+  const rules = (await supabase.from("mentor_schedule_rules").select("day_of_week,enabled,start_time,end_time").eq("mentor_id", mentorId).order("day_of_week")).data || [];
+  const dayNames: WeeklyScheduleDay["day"][] = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+  const fallback = getStoredWeeklySchedule();
+  const schedule = dayNames.slice(1).concat(dayNames.slice(0,1)).map((day) => {
+    const idx = dayNames.indexOf(day);
+    const r = rules.find((x: any) => Number(x.day_of_week) === idx);
+    const old = fallback.find((x) => x.day === day)!;
+    return { day, enabled: r ? !!r.enabled : old.enabled, startTime: r ? String(r.start_time).slice(0,5) : old.startTime, endTime: r ? String(r.end_time).slice(0,5) : old.endTime };
+  }) as WeeklyScheduleDay[];
+  const blockedRows = (await supabase.from("mentor_blocked_dates").select("id,blocked_date,reason").eq("mentor_id", mentorId).order("blocked_date")).data || [];
+  const blocked = blockedRows.map((b: any) => ({ id: String(b.id), date: b.blocked_date, reason: b.reason || "Unavailable" }));
+  return { schedule, blocked };
+}
+
+export async function saveMentorScheduleToDb(mentorId: string, schedule: WeeklyScheduleDay[]): Promise<boolean> {
+  try {
+    const dayIndex: Record<string, number> = { Sunday: 0, Monday: 1, Tuesday: 2, Wednesday: 3, Thursday: 4, Friday: 5, Saturday: 6 };
+    for (const d of schedule) {
+      const payload = { mentor_id: mentorId, day_of_week: dayIndex[d.day], enabled: d.enabled, start_time: d.startTime, end_time: d.endTime, updated_at: new Date().toISOString() };
+      const r = await supabase.from("mentor_schedule_rules").upsert(payload, { onConflict: "mentor_id,day_of_week" });
+      if (r.error) return false;
+    }
+    return true;
+  } catch { return false; }
+}
+
+export async function addMentorBlockedDateToDb(mentorId: string, entry: BlockedDate): Promise<boolean> {
+  const r = await supabase.from("mentor_blocked_dates").upsert({ mentor_id: mentorId, blocked_date: entry.date, reason: entry.reason }, { onConflict: "mentor_id,blocked_date" });
+  return !r.error;
+}
+
+export async function removeMentorBlockedDateFromDb(mentorId: string, id: string, date: string): Promise<boolean> {
+  const q = supabase.from("mentor_blocked_dates").delete().eq("mentor_id", mentorId);
+  const r = id.includes("-") ? await q.eq("id", id) : await q.eq("blocked_date", date);
+  return !r.error;
+}
+
 export async function saveMenteeMilestonesToDb(studentId: string, pathId: string, milestones: MenteeMilestone[]): Promise<boolean> {
   try {
     const pathRow = (await supabase.from("growth_paths").select("id").eq("slug", pathId).maybeSingle()).data;
