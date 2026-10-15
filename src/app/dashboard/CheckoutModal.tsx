@@ -9,7 +9,8 @@ import {
 import { C } from "./dashColors";
 import type { Mentor } from "./pages/MentorsPage";
 import type { SessionType } from "./mentorExtra";
-import { createBooking, type Booking } from "../lib/bookings";
+import { createBookingAndPersist, type Booking } from "../lib/bookings";
+import { supabase } from "../lib/supabase";
 import { addXp } from "../lib/xpSystem";
 
 interface CheckoutModalProps {
@@ -91,42 +92,105 @@ export function CheckoutModal({
 
   const handleConfirmAndPay = async () => {
     setIsProcessing(true);
-    setProcessingStep("Securing calendar slot with " + mentor.name + "...");
+    setProcessingStep("Creating a secure booking...");
+    try {
+      const booking = await createBookingAndPersist({
+        mentorId: mentor.id,
+        mentorName: mentor.name,
+        mentorTitle: mentor.title,
+        mentorCompany: mentor.company,
+        mentorColor: mentor.color,
+        mentorInitials: mentor.initials,
+        sessionType: session.name,
+        duration: session.duration,
+        price: finalPriceStr,
+        bookingDate: selectedDate,
+        bookingTime: selectedSlot,
+        notes: notes.trim() || undefined,
+      });
 
-    await new Promise((r) => setTimeout(r, 600));
-    setProcessingStep("Authorizing 256-bit encrypted checkout...");
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) throw new Error("Please sign in again before checkout.");
 
-    await new Promise((r) => setTimeout(r, 700));
-    setProcessingStep("Syncing confirmation to Starfix...");
+      const callPayment = async (action: string, body: Record<string, unknown>) => {
+        const res = await fetch(`${supabase.supabaseUrl}/functions/v1/razorpay-payments?action=${action}`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            apikey: supabase.supabaseKey,
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify(body),
+        });
+        const result = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(result.error || "Secure checkout could not be started.");
+        return result;
+      };
 
-    await new Promise((r) => setTimeout(r, 500));
+      if (isFree || finalPriceNum === 0) {
+        setProcessingStep("Confirming your free session...");
+        await callPayment("confirm-free-booking", { booking_id: booking.id });
+      } else {
+        setProcessingStep("Preparing secure Razorpay checkout...");
+        const order = await callPayment("create-order", { booking_id: booking.id });
+        if (!order.key_id || !order.order_id || !order.amount) {
+          throw new Error("Payment provider returned an invalid order.");
+        }
 
-    // Create Booking
-    const newBooking = createBooking({
-      mentorId: mentor.id,
-      mentorName: mentor.name,
-      mentorTitle: mentor.title,
-      mentorCompany: mentor.company,
-      mentorColor: mentor.color,
-      mentorInitials: mentor.initials,
-      sessionType: session.name,
-      duration: session.duration,
-      price: finalPriceStr,
-      bookingDate: selectedDate,
-      bookingTime: selectedSlot,
-      notes: notes.trim() || undefined,
-    });
+        await new Promise<void>((resolve, reject) => {
+          const launch = () => {
+            const RazorpayCtor = (window as any).Razorpay;
+            if (!RazorpayCtor) return reject(new Error("Razorpay checkout could not load."));
+            const checkout = new RazorpayCtor({
+              key: order.key_id,
+              amount: order.amount,
+              currency: order.currency || "INR",
+              name: "Starfix",
+              description: `${session.name} with ${mentor.name}`,
+              order_id: order.order_id,
+              theme: { color: "#D4AF37" },
+              handler: async (paymentResult: Record<string, string>) => {
+                try {
+                  setProcessingStep("Verifying payment securely...");
+                  await callPayment("verify-payment", paymentResult);
+                  resolve();
+                } catch (error) { reject(error); }
+              },
+              modal: { ondismiss: () => reject(new Error("Checkout was closed. Your booking remains pending and you can try again.")) },
+            });
+            checkout.open();
+          };
+          if ((window as any).Razorpay) return launch();
+          const existing = document.querySelector('script[data-starfix-razorpay="true"]') as HTMLScriptElement | null;
+          if (existing) {
+            existing.addEventListener("load", launch, { once: true });
+            existing.addEventListener("error", () => reject(new Error("Razorpay checkout could not load.")), { once: true });
+            return;
+          }
+          const script = document.createElement("script");
+          script.src = "https://checkout.razorpay.com/v1/checkout.js";
+          script.async = true;
+          script.dataset.starfixRazorpay = "true";
+          script.onload = launch;
+          script.onerror = () => reject(new Error("Razorpay checkout could not load."));
+          document.body.appendChild(script);
+        });
+      }
 
-    // Award XP
-    addXp(50, `Booked ${session.name} with ${mentor.name}`);
-
-    setIsProcessing(false);
-    setCompletedBooking(newBooking);
-    onSuccessBooking?.(newBooking);
-
-    toast.success("Mentorship session confirmed!", {
-      description: `${mentor.name} • ${selectedDate} at ${selectedSlot} (+50 XP)`,
-    });
+      const confirmedBooking = { ...booking, status: "Booked" as const };
+      addXp(50, `Booked ${session.name} with ${mentor.name}`);
+      setIsProcessing(false);
+      setCompletedBooking(confirmedBooking);
+      onSuccessBooking?.(confirmedBooking);
+      toast.success(isFree || finalPriceNum === 0 ? "Free mentorship session confirmed!" : "Payment verified and session confirmed!", {
+        description: `${mentor.name} • ${selectedDate} at ${selectedSlot} (+50 XP)`,
+      });
+    } catch (error) {
+      setIsProcessing(false);
+      const message = error instanceof Error ? error.message : "Checkout failed. Please try again.";
+      toast.error(message);
+    }
   };
 
   if (!isOpen) return null;
@@ -493,249 +557,17 @@ export function CheckoutModal({
                 />
               </div>
 
-              {/* 3. Payment Methods (Only if not Free) */}
+              {/* Payment is handled by Razorpay Checkout; Starfix never collects card/UPI credentials. */}
               {!isFree && (
-                <div>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                    <label style={{ color: "#fff", fontSize: "0.82rem", fontWeight: 600 }}>Payment Method</label>
-                    <span style={{ color: "rgba(255, 255, 255, 0.4)", fontSize: "0.72rem", display: "flex", alignItems: "center", gap: 4 }}>
-                      <Lock size={11} color={C.gold} /> 256-Bit SSL Encrypted
-                    </span>
+                <div style={{ background: "#101026", border: "1px solid rgba(212,175,55,0.25)", borderRadius: 12, padding: 16, marginBottom: 16 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#fff", fontWeight: 700, marginBottom: 6 }}>
+                    <ShieldCheck size={16} color={C.gold} /> Secure payment by Razorpay
                   </div>
-
-                  {/* Payment Tabs */}
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 14 }}>
-                    <button
-                      type="button"
-                      onClick={() => setPaymentMethod("upi")}
-                      style={{
-                        background: paymentMethod === "upi" ? "rgba(212, 175, 55, 0.15)" : "#101026",
-                        border: `1.5px solid ${paymentMethod === "upi" ? C.gold : "rgba(255, 255, 255, 0.1)"}`,
-                        color: paymentMethod === "upi" ? "#fff" : "rgba(255, 255, 255, 0.6)",
-                        padding: "10px",
-                        borderRadius: 10,
-                        fontSize: "0.78rem",
-                        fontWeight: 600,
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: 6,
-                        fontFamily: "'Inter', sans-serif",
-                      }}
-                    >
-                      <QrCode size={14} /> UPI
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPaymentMethod("card")}
-                      style={{
-                        background: paymentMethod === "card" ? "rgba(212, 175, 55, 0.15)" : "#101026",
-                        border: `1.5px solid ${paymentMethod === "card" ? C.gold : "rgba(255, 255, 255, 0.1)"}`,
-                        color: paymentMethod === "card" ? "#fff" : "rgba(255, 255, 255, 0.6)",
-                        padding: "10px",
-                        borderRadius: 10,
-                        fontSize: "0.78rem",
-                        fontWeight: 600,
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: 6,
-                        fontFamily: "'Inter', sans-serif",
-                      }}
-                    >
-                      <CreditCard size={14} /> Card
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPaymentMethod("netbanking")}
-                      style={{
-                        background: paymentMethod === "netbanking" ? "rgba(212, 175, 55, 0.15)" : "#101026",
-                        border: `1.5px solid ${paymentMethod === "netbanking" ? C.gold : "rgba(255, 255, 255, 0.1)"}`,
-                        color: paymentMethod === "netbanking" ? "#fff" : "rgba(255, 255, 255, 0.6)",
-                        padding: "10px",
-                        borderRadius: 10,
-                        fontSize: "0.78rem",
-                        fontWeight: 600,
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: 6,
-                        fontFamily: "'Inter', sans-serif",
-                      }}
-                    >
-                      <Building2 size={14} /> Net Banking
-                    </button>
-                  </div>
-
-                  {/* Payment Inputs */}
-                  {paymentMethod === "upi" && (
-                    <div style={{ background: "#101026", padding: 14, borderRadius: 12, border: "1px solid rgba(255, 255, 255, 0.08)" }}>
-                      <label style={{ color: "rgba(255, 255, 255, 0.7)", fontSize: "0.74rem", display: "block", marginBottom: 6 }}>
-                        Enter UPI ID / VPA (Google Pay, PhonePe, Paytm, BHIM)
-                      </label>
-                      <input
-                        type="text"
-                        value={upiId}
-                        onChange={(e) => setUpiId(e.target.value)}
-                        placeholder="yourname@okaxis or 9876543210@paytm"
-                        style={{
-                          width: "100%",
-                          boxSizing: "border-box",
-                          background: "#08081A",
-                          border: "1px solid rgba(255, 255, 255, 0.15)",
-                          borderRadius: 8,
-                          padding: "9px 12px",
-                          color: "#fff",
-                          fontSize: "0.8rem",
-                          outline: "none",
-                        }}
-                      />
-                    </div>
-                  )}
-
-                  {paymentMethod === "card" && (
-                    <div style={{ background: "#101026", padding: 14, borderRadius: 12, border: "1px solid rgba(255, 255, 255, 0.08)", display: "flex", flexDirection: "column", gap: 10 }}>
-                      <input
-                        type="text"
-                        value={cardName}
-                        onChange={(e) => setCardName(e.target.value)}
-                        placeholder="Cardholder Name"
-                        style={{
-                          width: "100%",
-                          boxSizing: "border-box",
-                          background: "#08081A",
-                          border: "1px solid rgba(255, 255, 255, 0.15)",
-                          borderRadius: 8,
-                          padding: "9px 12px",
-                          color: "#fff",
-                          fontSize: "0.8rem",
-                          outline: "none",
-                        }}
-                      />
-                      <input
-                        type="text"
-                        value={cardNumber}
-                        onChange={(e) => setCardNumber(e.target.value)}
-                        placeholder="16-Digit Card Number (4000 1234 5678 9010)"
-                        maxLength={19}
-                        style={{
-                          width: "100%",
-                          boxSizing: "border-box",
-                          background: "#08081A",
-                          border: "1px solid rgba(255, 255, 255, 0.15)",
-                          borderRadius: 8,
-                          padding: "9px 12px",
-                          color: "#fff",
-                          fontSize: "0.8rem",
-                          outline: "none",
-                        }}
-                      />
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                        <input
-                          type="text"
-                          value={cardExpiry}
-                          onChange={(e) => setCardExpiry(e.target.value)}
-                          placeholder="MM/YY"
-                          maxLength={5}
-                          style={{
-                            background: "#08081A",
-                            border: "1px solid rgba(255, 255, 255, 0.15)",
-                            borderRadius: 8,
-                            padding: "9px 12px",
-                            color: "#fff",
-                            fontSize: "0.8rem",
-                            outline: "none",
-                          }}
-                        />
-                        <input
-                          type="password"
-                          value={cardCvv}
-                          onChange={(e) => setCardCvv(e.target.value)}
-                          placeholder="CVV"
-                          maxLength={4}
-                          style={{
-                            background: "#08081A",
-                            border: "1px solid rgba(255, 255, 255, 0.15)",
-                            borderRadius: 8,
-                            padding: "9px 12px",
-                            color: "#fff",
-                            fontSize: "0.8rem",
-                            outline: "none",
-                          }}
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  {paymentMethod === "netbanking" && (
-                    <div style={{ background: "#101026", padding: 14, borderRadius: 12, border: "1px solid rgba(255, 255, 255, 0.08)" }}>
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                        {["HDFC Bank", "ICICI Bank", "State Bank of India", "Axis Bank"].map((b) => (
-                          <button
-                            key={b}
-                            type="button"
-                            onClick={() => setSelectedBank(b)}
-                            style={{
-                              background: selectedBank === b ? "rgba(212, 175, 55, 0.15)" : "#08081A",
-                              border: `1px solid ${selectedBank === b ? C.gold : "rgba(255, 255, 255, 0.1)"}`,
-                              color: selectedBank === b ? "#fff" : "rgba(255, 255, 255, 0.7)",
-                              borderRadius: 8,
-                              padding: "8px 10px",
-                              fontSize: "0.74rem",
-                              fontWeight: 600,
-                              cursor: "pointer",
-                              textAlign: "left",
-                            }}
-                          >
-                            {b}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Promo Code Strip */}
-                  <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-                    <input
-                      type="text"
-                      value={promoCode}
-                      onChange={(e) => setPromoCode(e.target.value)}
-                      placeholder="Coupon / Starfix Pass (e.g. VIP, STARFIX50)"
-                      style={{
-                        flex: 1,
-                        background: "#101026",
-                        border: "1px solid rgba(255, 255, 255, 0.12)",
-                        borderRadius: 8,
-                        padding: "8px 12px",
-                        color: "#fff",
-                        fontSize: "0.76rem",
-                        textTransform: "uppercase",
-                        outline: "none",
-                      }}
-                    />
-                    <button
-                      type="button"
-                      onClick={applyPromo}
-                      style={{
-                        background: "rgba(212, 175, 55, 0.15)",
-                        border: "1px solid rgba(212, 175, 55, 0.35)",
-                        color: C.gold,
-                        borderRadius: 8,
-                        padding: "0 14px",
-                        fontSize: "0.76rem",
-                        fontWeight: 700,
-                        cursor: "pointer",
-                      }}
-                    >
-                      Apply
-                    </button>
-                  </div>
+                  <p style={{ margin: 0, color: "rgba(255,255,255,0.65)", fontSize: "0.8rem", lineHeight: 1.6 }}>
+                    UPI, cards and supported banking options are shown in the secure Razorpay checkout. Starfix does not store card numbers, CVV or UPI credentials. Final price is verified from the mentor's active session in the database.
+                  </p>
                 </div>
               )}
-
               {/* 4. Order Summary & Guarantee */}
               <div
                 style={{
