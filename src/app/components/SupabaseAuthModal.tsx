@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { ArrowRight, Eye, EyeOff, X, Sparkles } from "lucide-react";
-import { toast } from "sonner";
-import { supabase, isGoogleOAuthEnabled } from "../lib/supabase";
+import { supabase } from "../lib/supabase";
 
 export type SupabaseAuthMode = "login" | "signup";
 
@@ -91,31 +90,6 @@ export function SupabaseAuthModal({ mode, onClose, onSuccess, onSwitchMode }: Pr
     }
   }
 
-  async function handleGoogle() {
-    setError("");
-    setMessage("");
-    setLoading(true);
-
-    const googleReady = await isGoogleOAuthEnabled();
-    if (!googleReady) {
-      setLoading(false);
-      setError("Google Sign-In is not enabled yet in your Supabase project (Authentication > Providers > Google). Please log in with Email & Password or use another sign-in method.");
-      toast.error("Google OAuth not enabled in Supabase yet", {
-        description: "Please sign in with Email & Password, or click 'another sign-in method' below."
-      });
-      return;
-    }
-
-    const { error: authError } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: window.location.origin },
-    });
-    if (authError) {
-      setError(authError.message);
-      setLoading(false);
-    }
-  }
-
   return (
     <AnimatePresence>
       {mode && (
@@ -133,10 +107,6 @@ export function SupabaseAuthModal({ mode, onClose, onSuccess, onSwitchMode }: Pr
             <div style={{ color: GOLD, fontFamily: "Playfair Display, serif", fontWeight: 700, fontSize: 18, marginBottom: 20 }}>Starfix</div>
             <h2 style={{ fontFamily: "Playfair Display, serif", margin: 0, fontSize: 27 }}>{isSignup ? "Create your account" : "Welcome back"}</h2>
             <p style={{ color: "rgba(250,249,246,.46)", fontSize: 13, lineHeight: 1.6, margin: "8px 0 22px" }}>{isSignup ? "Your real Starfix account, synced across devices." : "Sign in to continue your journey."}</p>
-
-            <button type="button" onClick={handleGoogle} disabled={loading} style={{ width: "100%", padding: "12px 14px", borderRadius: 12, border: "1px solid rgba(255,255,255,.12)", background: "rgba(255,255,255,.05)", color: INK, fontWeight: 600, cursor: loading ? "not-allowed" : "pointer", marginBottom: 10 }}>Continue with Google</button>
-
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18, color: "rgba(250,249,246,.28)", fontSize: 11 }}><span style={{ flex: 1, height: 1, background: "rgba(255,255,255,.08)" }} /> OR <span style={{ flex: 1, height: 1, background: "rgba(255,255,255,.08)" }} /></div>
 
             <form onSubmit={handleSubmit} style={{ display: "grid", gap: 13 }}>
               {isSignup && <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Full name" style={fieldStyle} />}
