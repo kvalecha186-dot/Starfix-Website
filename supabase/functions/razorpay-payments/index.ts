@@ -122,6 +122,10 @@ async function createOrder(req: Request) {
     student_id: user.id,
     provider: "razorpay",
     provider_order_id: order.id,
+    provider_payment_id: null,
+    failure_reason: null,
+    paid_at: null,
+    refunded_at: null,
     amount_paise: amountPaise,
     currency,
     status: "created",
@@ -218,8 +222,13 @@ async function webhook(req: Request) {
   if (!payment) return response(200, { received: true, ignored: true });
 
   if (event.event === "payment.captured" || event.event === "order.paid") {
-    if (paymentEntity && Number(paymentEntity.amount) !== Number(payment.amount_paise)) {
-      return response(400, { error: "Captured amount does not match order" });
+    if (paymentEntity && (Number(paymentEntity.amount) !== Number(payment.amount_paise)
+      || String(paymentEntity.currency).toUpperCase() !== payment.currency)) {
+      return response(400, { error: "Captured amount or currency does not match order" });
+    }
+    if (orderEntity && (Number(orderEntity.amount_paid ?? orderEntity.amount) !== Number(payment.amount_paise)
+      || String(orderEntity.currency).toUpperCase() !== payment.currency)) {
+      return response(400, { error: "Paid order amount or currency does not match ledger" });
     }
     if (payment.status !== "paid") {
       const { error: updateError } = await admin.from("payments").update({
