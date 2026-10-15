@@ -123,6 +123,7 @@ create trigger on_auth_user_created
   for each row execute function public.handle_new_user();
 
 -- 5. REPAIR AND GRANT PERMISSIONS FOR ADMIN RPC FUNCTIONS
+drop function if exists public.get_admin_overview_metrics() cascade;
 create or replace function public.get_admin_overview_metrics()
 returns table (
   registered_learners bigint,
@@ -154,6 +155,7 @@ begin
 end;
 $$;
 
+drop function if exists public.get_admin_learner_metrics() cascade;
 create or replace function public.get_admin_learner_metrics()
 returns table (
   learner_id text,
@@ -189,6 +191,7 @@ begin
 end;
 $$;
 
+drop function if exists public.get_admin_mentor_metrics() cascade;
 create or replace function public.get_admin_mentor_metrics()
 returns table (
   mentor_id text,
@@ -221,7 +224,7 @@ begin
     m.profile_id::text as profile_id,
     m.name,
     m.email,
-    m.title as headline,
+    coalesce(m.headline, '') as headline,
     m.company,
     m.category,
     coalesce(m.rating, 5.0) as catalog_rating,
@@ -231,10 +234,10 @@ begin
     coalesce((select count(*)::integer from public.bookings b where b.mentor_id = m.id), 0) as total_bookings,
     coalesce((select count(*)::integer from public.bookings b where b.mentor_id = m.id and b.status = 'completed'), 0) as completed_sessions,
     3::integer as future_available_slots,
-    true as onboarding_completed,
+    coalesce(m.onboarding_completed, true) as onboarding_completed,
     m.location,
-    'Graduate'::text as education,
-    ''::text as linkedin_url,
+    coalesce(m.education, 'Graduate'::text) as education,
+    coalesce(m.linkedin_url, ''::text) as linkedin_url,
     'Active'::text as mentor_status,
     'Established'::text as performance_band
   from public.mentors m
