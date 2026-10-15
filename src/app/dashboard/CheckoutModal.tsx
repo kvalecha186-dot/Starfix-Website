@@ -59,6 +59,7 @@ export function CheckoutModal({
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingStep, setProcessingStep] = useState("");
   const [completedBooking, setCompletedBooking] = useState<Booking | null>(null);
+  const [pendingBooking, setPendingBooking] = useState<Booking | null>(null);
 
   // Parse numerical price
   const isFree = session.price === "Free" || session.price === "₹0" || session.price === "0";
@@ -94,7 +95,7 @@ export function CheckoutModal({
     setIsProcessing(true);
     setProcessingStep("Creating a secure booking...");
     try {
-      const booking = await createBookingAndPersist({
+      const booking = pendingBooking ?? await createBookingAndPersist({
         mentorId: mentor.id,
         mentorName: mentor.name,
         mentorTitle: mentor.title,
@@ -108,6 +109,7 @@ export function CheckoutModal({
         bookingTime: selectedSlot,
         notes: notes.trim() || undefined,
       });
+      if (!pendingBooking) setPendingBooking(booking);
 
       const { data: sessionData } = await supabase.auth.getSession();
       const accessToken = sessionData.session?.access_token;
@@ -182,6 +184,7 @@ export function CheckoutModal({
       addXp(50, `Booked ${session.name} with ${mentor.name}`);
       setIsProcessing(false);
       setCompletedBooking(confirmedBooking);
+      setPendingBooking(null);
       onSuccessBooking?.(confirmedBooking);
       toast.success(isFree || finalPriceNum === 0 ? "Free mentorship session confirmed!" : "Payment verified and session confirmed!", {
         description: `${mentor.name} • ${selectedDate} at ${selectedSlot} (+50 XP)`,
