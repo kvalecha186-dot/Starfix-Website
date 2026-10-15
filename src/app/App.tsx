@@ -102,19 +102,11 @@ function AppShell() {
         });
         void initializeBackendSync();
       } else {
-        const localLoggedIn = typeof window !== "undefined" && localStorage.getItem("loggedIn") === "true";
-        if (localLoggedIn) {
-          const raw = localStorage.getItem("userProfile");
-          try {
-            setUserProfile(raw ? JSON.parse(raw) : DEFAULT_PROFILE);
-            setUserRole((localStorage.getItem("starfix:userRole") as any) || "student");
-            setLoggedIn(true);
-          } catch {
-            setUserProfile(null);
-          }
-        } else {
-          setUserProfile(null);
-        }
+        // A localStorage flag is not proof of identity. Only a valid Supabase
+        // session may unlock authenticated learner or mentor features.
+        localStorage.removeItem("loggedIn");
+        setUserProfile(null);
+        setUserRole("student");
       }
       setAuthLoading(false);
     }
@@ -195,8 +187,9 @@ function AppShell() {
       await upsertProfile(data.session.user.id, profile);
       void initializeBackendSync();
     } else {
-      localStorage.setItem("loggedIn", "true");
-      setLoggedIn(true);
+      // Onboarding alone must not create an authenticated session.
+      setLoggedIn(false);
+      setAuthMode("signup");
     }
   }, []);
 
