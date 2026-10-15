@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { X, ArrowRight, Eye, EyeOff, MailCheck, Sparkles } from "lucide-react";
+import { X, ArrowRight, Eye, EyeOff, MailCheck } from "lucide-react";
 import { toast } from "sonner";
 import { supabase, isGoogleOAuthEnabled } from "../lib/supabase";
 
@@ -64,6 +64,13 @@ export function AuthModal({
   // before a session exists — there's nothing more this modal can do until
   // the learner clicks the link in their inbox.
   const [awaitingConfirm, setAwaitingConfirm] = useState(false);
+  const [googleEnabled, setGoogleEnabled] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    isGoogleOAuthEnabled().then((enabled) => { if (active) setGoogleEnabled(enabled); });
+    return () => { active = false; };
+  }, []);
 
   /* Reset transient form state whenever the mode is switched */
   useEffect(() => { setError(""); setLoading(false); setAwaitingConfirm(false); }, [mode]);
@@ -116,9 +123,9 @@ export function AuthModal({
     const googleReady = await isGoogleOAuthEnabled();
     if (!googleReady) {
       setLoading(false);
-      setError("Google Sign-In is not enabled yet in your Supabase project (Authentication > Providers > Google). Use Email & Password or 1-Click Demo Login below.");
-      toast.error("Google OAuth not enabled in Supabase yet", {
-        description: "Please sign in with Email & Password, or click '1-Click Demo Student Access' below."
+      setError("Google sign-in is not configured for Starfix yet. Please use your registered email and password.");
+      toast.error("Google sign-in is temporarily unavailable", {
+        description: "Use email and password while the Google provider is configured."
       });
       return;
     }
@@ -130,25 +137,7 @@ export function AuthModal({
     if (err) { setLoading(false); setError(friendlyError(err.message)); }
   };
 
-  const handleDemoLogin = () => {
-    const demoProfile = {
-      name: "Alex Sterling (Demo)",
-      email: "demo@starfix.vip",
-      goalId: "coding",
-      goalTitle: "Coding & Development",
-      level: "intermediate" as const,
-      dailyTime: "45min",
-      preference: "roadmap",
-      country: "United States",
-      learningLanguage: "en" as const,
-    };
-    localStorage.setItem("userProfile", JSON.stringify(demoProfile));
-    localStorage.setItem("loggedIn", "true");
-    window.dispatchEvent(new Event("starfix:auth-changed"));
-    toast.success("Signed in as Demo Student", { description: "Full platform access unlocked" });
-    onSuccess();
-    onClose();
-  };
+
 
 
   return (
@@ -266,50 +255,31 @@ export function AuthModal({
           </div>
         ) : (
         <>
-        {/* Google */}
-        <motion.button
-          type="button"
-          onClick={handleGoogle}
-          disabled={loading}
-          whileHover={{ y: loading ? 0 : -1 }}
-          whileTap={{ scale: loading ? 1 : 0.98 }}
-          style={{
-            width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
-            padding: "11px 14px", borderRadius: 12,
-            background: "rgba(255,255,255,0.05)",
-            border: "1px solid rgba(255,255,255,0.1)",
-            color: INK, fontSize: "0.85rem", fontWeight: 600,
-            cursor: loading ? "not-allowed" : "pointer",
-            fontFamily: "'Inter', sans-serif",
-            transition: "background 0.2s, border-color 0.2s",
-            marginBottom: 20,
-          }}
-          onMouseEnter={(e) => { if (!loading) (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.08)"; }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.05)"; }}
-        >
-          <GoogleMark /> Continue with Google
-        </motion.button>
-
-        <motion.button
-          type="button"
-          onClick={handleDemoLogin}
-          disabled={loading}
-          whileHover={{ y: loading ? 0 : -1 }}
-          whileTap={{ scale: loading ? 1 : 0.98 }}
-          style={{
-            width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-            padding: "11px 14px", borderRadius: 12,
-            background: "rgba(212,175,55,0.1)",
-            border: "1px solid rgba(212,175,55,0.35)",
-            color: GOLD, fontSize: "0.85rem", fontWeight: 600,
-            cursor: loading ? "not-allowed" : "pointer",
-            fontFamily: "'Inter', sans-serif",
-            transition: "background 0.2s, border-color 0.2s",
-            marginBottom: 20,
-          }}
-        >
-          <Sparkles size={14} color={GOLD} /> 1-Click Demo Student Access
-        </motion.button>
+        {/* Google OAuth is shown only when the Supabase provider is enabled. */}
+        {googleEnabled ? (
+          <motion.button
+            type="button" onClick={handleGoogle} disabled={loading}
+            whileHover={{ y: loading ? 0 : -1 }} whileTap={{ scale: loading ? 1 : 0.98 }}
+            style={{
+              width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
+              padding: "11px 14px", borderRadius: 12, background: "rgba(255,255,255,0.05)",
+              border: "1px solid rgba(255,255,255,0.1)", color: INK, fontSize: "0.85rem",
+              fontWeight: 600, cursor: loading ? "not-allowed" : "pointer",
+              fontFamily: "'Inter', sans-serif", marginBottom: 20,
+            }}
+          >
+            <GoogleMark /> Continue with Google
+          </motion.button>
+        ) : (
+          <div role="status" style={{
+            width: "100%", boxSizing: "border-box", padding: "11px 14px", marginBottom: 20,
+            background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.08)",
+            borderRadius: 12, color: "rgba(250,249,246,0.58)", fontSize: "0.8rem",
+            lineHeight: 1.5, textAlign: "center",
+          }}>
+            Google sign-in is temporarily unavailable. Please use email and password.
+          </div>
+        )}
 
         {/* Divider */}
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
