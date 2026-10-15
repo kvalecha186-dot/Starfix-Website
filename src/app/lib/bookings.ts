@@ -78,12 +78,13 @@ async function currentUserId(): Promise<string | null> {
   const { data } = await supabase.auth.getUser();
   return data.user?.id ?? null;
 }
-async function persistBooking(booking: Booking): Promise<void> {
+async function persistBooking(booking: Booking, requireSessionType = false): Promise<string | null> {
   const studentId = await currentUserId();
-  if (!studentId) return;
-  const { data: mentor } = await supabase.from("mentors").select("id").eq("legacy_id", booking.mentorId).maybeSingle();
-  if (!mentor?.id) return;
+  if (!studentId) return null;
+  const { data: mentor } = await supabase.from("public_mentor_directory").select("id").eq("legacy_id", booking.mentorId).maybeSingle();
+  if (!mentor?.id) return null;
   const { data: sessionType } = await supabase.from("session_types").select("id").eq("mentor_id", mentor.id).eq("title", booking.sessionType).maybeSingle();
+  if (requireSessionType && !sessionType?.id) return null;
   const start = buildScheduledStart(booking.bookingDate, booking.bookingTime);
   const end = start ? new Date(start.getTime() + parseDurationMinutes(booking.duration) * 60000) : null;
   const availability = start
@@ -102,12 +103,14 @@ async function persistBooking(booking: Booking): Promise<void> {
     p_session_type: booking.sessionType, p_duration: booking.duration, p_price: booking.price,
     p_booking_date: booking.bookingDate, p_booking_time: booking.bookingTime,
   });
-  if (error) { console.warn("Starfix booking sync:", error.message); return; }
+  if (error) { console.warn("Starfix booking sync:", error.message); return null; }
   if (data?.id) {
     const all = readLocal();
     const i = all.findIndex((b) => b.id === booking.id);
     if (i !== -1) { all[i] = { ...all[i], id: String(data.id), status: statusFromDb(data.status), createdAt: data.created_at || all[i].createdAt }; writeLocal(all); }
+    return String(data.id);
   }
+  return null;
 }
 export async function hydrateBookings(userId?: string): Promise<void> {
   const uid = userId || await currentUserId();
@@ -138,6 +141,17 @@ export function createBooking(data: Omit<Booking, "id" | "createdAt" | "status">
   void persistBooking(booking);
   return booking;
 }
+export async function createBookingAndPersist(data: Omit<Booking, "id" | "createdAt" | "status">): Promise<Booking> {
+  const booking: Booking = { ...data, id: `booking_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`, status: "Booked", createdAt: new Date().toISOString() };
+  writeLocal([booking, ...readLocal()]);
+  const databaseId = await persistBooking(booking, true);
+  if (!databaseId) {
+    writeLocal(readLocal().filter((item) => item.id !== booking.id));
+    throw new Error("Could not create a verified booking. This mentor may not have an active session type.");
+  }
+  return { ...booking, id: databaseId };
+}
+
 export function cancelBooking(bookingId: string): boolean {
   const bookings = readLocal(); const index = bookings.findIndex((b) => b.id === bookingId);
   if (index === -1) return false;

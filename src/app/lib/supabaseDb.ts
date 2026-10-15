@@ -114,7 +114,7 @@ export interface DbMentor {
 export async function fetchMentorsFromDb(): Promise<DbMentor[] | null> {
   try {
     const { data, error } = await supabase
-      .from("mentors")
+      .from("public_mentor_directory")
       .select("*")
       .order("id", { ascending: true });
 
@@ -220,7 +220,7 @@ export async function insertBookingToDb(studentId: string, booking: Booking): Pr
     // the booking still saves with its flat mentor_* display fields intact.
     let mentorUuid: string | null = null;
     const { data: mentorRow } = await supabase
-      .from("mentors")
+      .from("public_mentor_directory")
       .select("id")
       .eq("legacy_id", booking.mentorId)
       .maybeSingle();

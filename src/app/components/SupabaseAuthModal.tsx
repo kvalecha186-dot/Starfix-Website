@@ -5,17 +5,16 @@ import {
   Eye,
   EyeOff,
   X,
-  Sparkles,
   KeyRound,
   Mail,
   Phone,
   CheckCircle2,
   RotateCw,
   ArrowLeft,
-  ShieldAlert,
+  ShieldCheck,
+  Send,
 } from "lucide-react";
-import { toast } from "sonner";
-import { supabase, isGoogleOAuthEnabled, upsertProfile } from "../lib/supabase";
+import { supabase, upsertProfile } from "../lib/supabase";
 import { recordUserLogin } from "../lib/loginAudit";
 
 export type SupabaseAuthMode =
@@ -30,81 +29,54 @@ type Props = {
   mode: SupabaseAuthMode | null;
   onClose: () => void;
   onSuccess?: () => void;
-  onSwitchMode: (mode: SupabaseAuthMode) => void;
+  onSwitchMode?: (mode: SupabaseAuthMode) => void;
 };
 
 const GOLD = "#D4AF37";
 const GOLD_LIGHT = "#F4D67A";
-const INK = "#FAF9F6";
+const INK = "#0B0A12";
 
 export function SupabaseAuthModal({ mode, onClose, onSuccess, onSwitchMode }: Props) {
-  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [phone, setPhone] = useState("");
+  const [name, setName] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
   const [otpCode, setOtpCode] = useState("");
-  const [otpType, setOtpType] = useState<"recovery" | "email">("recovery");
-  const [recoveryMethod, setRecoveryMethod] = useState<"email" | "phone">("email");
+  const [recoveryMethod, setRecoveryMethod] = useState<"email" | "whatsapp">("email");
 
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
   const [resendTimer, setResendTimer] = useState(0);
 
-  // Clear messages on mode switch
-  useEffect(() => {
-    setMessage("");
-    setError("");
-    setLoading(false);
-  }, [mode]);
-
-  // Resend countdown timer
+  // Timer for OTP resend countdown
   useEffect(() => {
     if (resendTimer <= 0) return;
-    const interval = setInterval(() => setResendTimer((t) => t - 1), 1000);
+    const interval = setInterval(() => {
+      setResendTimer((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
     return () => clearInterval(interval);
   }, [resendTimer]);
 
-  // Close on ESC
+  // Reset transient feedback when switching modes
   useEffect(() => {
-    if (!mode) return;
-    const handler = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, [mode, onClose]);
+    setError("");
+    setMessage("");
+    setLoading(false);
+  }, [mode]);
 
-  // Check URL parameters for password recovery hash
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const hash = window.location.hash;
-    const search = window.location.search;
-    if (hash.includes("type=recovery") || search.includes("mode=reset_password") || search.includes("type=recovery")) {
-      onSwitchMode("set_new_password");
-    }
-  }, [onSwitchMode]);
-
-  /* ─────────────────────────────────────────────────────────────
-     1. EMAIL / PASSWORD LOGIN & SIGNUP
-  ───────────────────────────────────────────────────────────── */
-  async function handleSubmit(event: React.FormEvent) {
-    event.preventDefault();
+  /* ═══════════════════════════════════════════════════════════════
+     1. EMAIL + PASSWORD LOGIN / SIGNUP
+  ═══════════════════════════════════════════════════════════════ */
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
     setError("");
     setMessage("");
 
-    if (mode === "signup" && name.trim().length < 2) {
-      setError("Please enter your full name.");
-      return;
-    }
-    if (!email.includes("@")) {
-      setError("Please enter a valid email address.");
-      return;
-    }
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters.");
+    if (!email.trim() || !password) {
+      setError("Please fill in both email and password.");
       return;
     }
 
@@ -118,9 +90,8 @@ export function SupabaseAuthModal({ mode, onClose, onSuccess, onSwitchMode }: Pr
         });
 
         if (authError) {
-          // If 500 trigger error or rate limit, provide resilient graceful recovery
           if (authError.message.toLowerCase().includes("database error") || authError.message.includes("500")) {
-            console.warn("Supabase trigger error caught, using safe profile fallback");
+            console.warn("Supabase trigger warning caught, safely proceeding with profile creation");
           } else {
             throw authError;
           }
@@ -128,7 +99,7 @@ export function SupabaseAuthModal({ mode, onClose, onSuccess, onSwitchMode }: Pr
 
         const userId = data?.user?.id || "usr_" + Math.random().toString(36).slice(2, 9);
         await upsertProfile(userId, {
-          name: name.trim(),
+          name: name.trim() || email.split("@")[0],
           email: email.trim(),
           role: "student",
         });
@@ -136,60 +107,47 @@ export function SupabaseAuthModal({ mode, onClose, onSuccess, onSwitchMode }: Pr
         await recordUserLogin({
           userId,
           email: email.trim(),
-          name: name.trim(),
+          name: name.trim() || email.split("@")[0],
           role: "student",
-          loginMethod: "Email & Password",
+          loginMethod: "email_signup",
         });
 
-        localStorage.setItem("loggedIn", "true");
-        localStorage.setItem("starfix:userRole", "student");
-        window.dispatchEvent(new Event("starfix:auth-changed"));
-
-        toast.success("Account created successfully!", {
-          description: "Welcome to Starfix. Your learning journey begins now.",
-        });
-        onSuccess?.();
-        onClose();
-        return;
-      }
-
-      // LOGIN FLOW
-      const { data, error: authError } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password,
-      });
-
-      if (authError) {
-        // If credentials are invalid, inform user clearly and highlight Forgot Password
-        if (
-          authError.message.toLowerCase().includes("invalid login") ||
-          authError.message.toLowerCase().includes("credentials")
-        ) {
-          setError("Incorrect password or email not found. Click 'Forgot Password?' below to reset or receive an OTP.");
-          setLoading(false);
+        if (!data?.session) {
+          setMessage("Account created successfully! Check your email to confirm your account or sign in.");
           return;
         }
-        throw authError;
+      } else {
+        // LOGIN FLOW
+        const { data, error: authError } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password,
+        });
+
+        if (authError) {
+          if (authError.message.toLowerCase().includes("invalid login credentials")) {
+            throw new Error(
+              "Invalid email or password. If you don't remember your password, click 'Forgot Password?' below to recover it."
+            );
+          }
+          throw authError;
+        }
+
+        const user = data.user;
+        const profileName =
+          user?.user_metadata?.full_name ||
+          user?.user_metadata?.name ||
+          email.split("@")[0] ||
+          "Learner";
+
+        await recordUserLogin({
+          userId: user?.id || "usr_anon",
+          email: user?.email || email.trim(),
+          name: profileName,
+          role: "student",
+          loginMethod: "password",
+        });
       }
 
-      const user = data.user;
-      const userName = user?.user_metadata?.full_name || name.trim() || email.split("@")[0] || "Starfix Learner";
-      const userRole = (user?.user_metadata?.role as any) || (email.toLowerCase().includes("mentor") ? "mentor" : "student");
-
-      localStorage.setItem("loggedIn", "true");
-      localStorage.setItem("starfix:userRole", userRole);
-      window.dispatchEvent(new Event("starfix:auth-changed"));
-
-      // Record live login data for the Admin Dashboard
-      await recordUserLogin({
-        userId: user.id,
-        email: email.trim(),
-        name: userName,
-        role: userRole,
-        loginMethod: "Email & Password",
-      });
-
-      toast.success(`Welcome back, ${userName}!`);
       onSuccess?.();
       onClose();
     } catch (authError: any) {
@@ -199,9 +157,9 @@ export function SupabaseAuthModal({ mode, onClose, onSuccess, onSwitchMode }: Pr
     }
   }
 
-  /* ─────────────────────────────────────────────────────────────
+  /* ═══════════════════════════════════════════════════════════════
      2. FORGOT PASSWORD / SEND RECOVERY CODE & LINK
-  ───────────────────────────────────────────────────────────── */
+  ═══════════════════════════════════════════════════════════════ */
   async function handleSendRecovery(event: React.FormEvent) {
     event.preventDefault();
     setError("");
@@ -215,177 +173,161 @@ export function SupabaseAuthModal({ mode, onClose, onSuccess, onSwitchMode }: Pr
 
       setLoading(true);
       try {
+        const redirectUrl = `${window.location.origin}/#type=recovery`;
         const { error: resetErr } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-          redirectTo: `${window.location.origin}/?mode=reset_password`,
+          redirectTo: redirectUrl,
         });
 
         if (resetErr) throw resetErr;
 
-        setOtpType("recovery");
-        setResendTimer(45);
-        setMessage("Recovery link & 6-digit code sent to your email!");
-        toast.success("Password reset instructions sent", {
-          description: `Check your inbox (${email.trim()}) for the 6-digit verification code or reset link.`,
-        });
+        setMessage(
+          `Password reset link & 6-digit code sent to ${email.trim()}! Please check your Gmail/inbox (and spam folder).`
+        );
+        setResendTimer(60);
 
-        // Switch smoothly to OTP verification screen
-        setTimeout(() => {
-          onSwitchMode("verify_otp");
-        }, 1200);
+        // Switch to OTP verification step
+        if (onSwitchMode) {
+          setTimeout(() => {
+            onSwitchMode("verify_otp");
+          }, 1400);
+        }
       } catch (err: any) {
-        setError(err.message || "Failed to send recovery email. Please check the address.");
+        setError(err?.message || "Failed to send recovery email. Please check the address.");
       } finally {
         setLoading(false);
       }
     } else {
-      // PHONE / WHATSAPP RECOVERY
-      if (phone.trim().length < 8) {
-        setError("Please enter a valid phone number with country code (e.g. +91 94600...)");
+      // WhatsApp / Phone Recovery
+      if (!phoneNumber.trim()) {
+        setError("Please enter your mobile phone number with country code (e.g. +91 9876543210).");
         return;
       }
 
       setLoading(true);
       try {
+        const cleanPhone = phoneNumber.replace(/[\s-]/g, "");
         const { error: phoneErr } = await supabase.auth.signInWithOtp({
-          phone: phone.trim(),
+          phone: cleanPhone,
         });
 
         if (phoneErr) {
-          // If SMS provider not active in Supabase, show WhatsApp instant option
-          setError(
-            phoneErr.message.includes("provider") || phoneErr.message.includes("Twilio")
-              ? "SMS gateway is currently in VIP WhatsApp mode. Click 'Instant WhatsApp Recovery' below to receive verification directly."
-              : phoneErr.message
+          const whatsappText = encodeURIComponent(
+            `Hello Starfix Support, I need password recovery for my account.\nEmail: ${email || "registered email"}\nPhone: ${cleanPhone}`
           );
-          setLoading(false);
-          return;
+          const whatsappUrl = `https://wa.me/919460000000?text=${whatsappText}`;
+          setMessage(
+            "Phone OTP provider pending. You can also connect via verified WhatsApp support or use Email OTP recovery."
+          );
+          window.open(whatsappUrl, "_blank");
+        } else {
+          setMessage(`Verification code sent via SMS/WhatsApp to ${cleanPhone}!`);
+          setResendTimer(60);
+          if (onSwitchMode) {
+            setTimeout(() => onSwitchMode("verify_otp"), 1200);
+          }
         }
-
-        setOtpType("recovery");
-        setResendTimer(45);
-        toast.success("SMS Verification Code Sent", {
-          description: `Check your SMS messages on ${phone.trim()}`,
-        });
-        onSwitchMode("verify_otp");
       } catch (err: any) {
-        setError(err.message || "Failed to send SMS code.");
+        setError(err?.message || "Failed to trigger phone verification.");
       } finally {
         setLoading(false);
       }
     }
   }
 
-  /* ─────────────────────────────────────────────────────────────
-     3. 1-CLICK MAGIC CODE (NO PASSWORD NEEDED)
-  ───────────────────────────────────────────────────────────── */
-  async function handleSendMagicCode(event: React.FormEvent) {
-    event.preventDefault();
-    setError("");
-    setMessage("");
-
-    if (!email.includes("@")) {
-      setError("Please enter your email address.");
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const { error: otpErr } = await supabase.auth.signInWithOtp({
-        email: email.trim(),
-        options: { shouldCreateUser: true },
-      });
-
-      if (otpErr) throw otpErr;
-
-      setOtpType("email");
-      setResendTimer(45);
-      toast.success("1-Click Verification Code Sent", {
-        description: `Check your inbox at ${email.trim()} for your 6-digit login code.`,
-      });
-      onSwitchMode("verify_otp");
-    } catch (err: any) {
-      setError(err.message || "Could not send login code. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  /* ─────────────────────────────────────────────────────────────
-     4. VERIFY 6-DIGIT OTP CODE
-  ───────────────────────────────────────────────────────────── */
+  /* ═══════════════════════════════════════════════════════════════
+     3. VERIFY OTP (6-DIGIT CODE)
+  ═══════════════════════════════════════════════════════════════ */
   async function handleVerifyOtp(event: React.FormEvent) {
     event.preventDefault();
     setError("");
     setMessage("");
 
-    const code = otpCode.trim();
-    if (code.length < 6) {
-      setError("Please enter the 6-digit verification code.");
+    const cleanOtp = otpCode.trim();
+    if (cleanOtp.length < 6) {
+      setError("Please enter the complete 6-digit verification code.");
       return;
     }
 
     setLoading(true);
     try {
-      if (otpType === "recovery") {
-        const { error: verifyErr } = await supabase.auth.verifyOtp({
+      if (recoveryMethod === "email") {
+        const { data, error: otpErr } = await supabase.auth.verifyOtp({
           email: email.trim(),
-          token: code,
+          token: cleanOtp,
           type: "recovery",
         });
 
-        if (verifyErr) throw verifyErr;
+        if (otpErr) {
+          const { data: magicData, error: magicErr } = await supabase.auth.verifyOtp({
+            email: email.trim(),
+            token: cleanOtp,
+            type: "email",
+          });
+          if (magicErr) throw otpErr;
+          if (magicData.session) {
+            await recordUserLogin({
+              userId: magicData.user?.id || "usr_otp",
+              email: email.trim(),
+              name: magicData.user?.user_metadata?.full_name || email.split("@")[0],
+              role: "student",
+              loginMethod: "email_otp",
+            });
+            onSuccess?.();
+            onClose();
+            return;
+          }
+        }
 
-        toast.success("Code verified!", {
-          description: "You may now set a new password for your account.",
-        });
-        onSwitchMode("set_new_password");
+        if (data?.session) {
+          setMessage("Code verified! Please set your new password.");
+          if (onSwitchMode) {
+            onSwitchMode("set_new_password");
+          }
+        } else {
+          if (onSwitchMode) onSwitchMode("set_new_password");
+        }
       } else {
-        // Email magic code sign-in
-        const { data, error: verifyErr } = await supabase.auth.verifyOtp({
-          email: email.trim(),
-          token: code,
-          type: "email",
+        // Phone OTP verification
+        const cleanPhone = phoneNumber.replace(/[\s-]/g, "");
+        const { data, error: phoneVerifyErr } = await supabase.auth.verifyOtp({
+          phone: cleanPhone,
+          token: cleanOtp,
+          type: "sms",
         });
 
-        if (verifyErr) throw verifyErr;
+        if (phoneVerifyErr) throw phoneVerifyErr;
 
-        const user = data.user;
-        const userName = user?.user_metadata?.full_name || email.split("@")[0] || "Starfix Learner";
-        localStorage.setItem("loggedIn", "true");
-        localStorage.setItem("starfix:userRole", "student");
-        window.dispatchEvent(new Event("starfix:auth-changed"));
-
-        await recordUserLogin({
-          userId: user?.id,
-          email: email.trim(),
-          name: userName,
-          role: "student",
-          loginMethod: "OTP Verification Code",
-        });
-
-        toast.success(`Welcome to Starfix, ${userName}!`);
-        onSuccess?.();
-        onClose();
+        if (data?.session) {
+          await recordUserLogin({
+            userId: data.user?.id || "usr_phone",
+            email: data.user?.email || cleanPhone,
+            name: "Learner (" + cleanPhone.slice(-4) + ")",
+            role: "student",
+            loginMethod: "phone_otp",
+          });
+          if (onSwitchMode) onSwitchMode("set_new_password");
+        }
       }
     } catch (err: any) {
-      setError(err.message || "Invalid or expired verification code. Please check and try again.");
+      setError(err?.message || "Invalid or expired verification code. Please check and try again.");
     } finally {
       setLoading(false);
     }
   }
 
-  /* ─────────────────────────────────────────────────────────────
-     5. SET NEW PASSWORD
-  ───────────────────────────────────────────────────────────── */
+  /* ═══════════════════════════════════════════════════════════════
+     4. SET NEW PASSWORD
+  ═══════════════════════════════════════════════════════════════ */
   async function handleSetNewPassword(event: React.FormEvent) {
     event.preventDefault();
     setError("");
     setMessage("");
 
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters.");
+    if (!password || password.length < 6) {
+      setError("Password must be at least 6 characters long.");
       return;
     }
+
     if (password !== confirmPassword) {
       setError("Passwords do not match. Please re-enter.");
       return;
@@ -394,126 +336,68 @@ export function SupabaseAuthModal({ mode, onClose, onSuccess, onSwitchMode }: Pr
     setLoading(true);
     try {
       const { data, error: updateErr } = await supabase.auth.updateUser({
-        password,
+        password: password,
       });
 
       if (updateErr) throw updateErr;
 
       const user = data.user;
-      const userName = user?.user_metadata?.full_name || email.split("@")[0] || "Starfix User";
-
-      localStorage.setItem("loggedIn", "true");
-      localStorage.setItem("starfix:userRole", "student");
-      window.dispatchEvent(new Event("starfix:auth-changed"));
-
       await recordUserLogin({
-        userId: user?.id,
+        userId: user?.id || "usr_reset",
         email: user?.email || email.trim(),
-        name: userName,
+        name: user?.user_metadata?.full_name || email.split("@")[0] || "Learner",
         role: "student",
-        loginMethod: "Password Reset Recovery",
+        loginMethod: "password_reset",
       });
 
-      toast.success("Password successfully updated!", {
-        description: "You are now logged in with your new credentials.",
-      });
-      onSuccess?.();
-      onClose();
+      setMessage("Password successfully updated! Logging you in...");
+      setTimeout(() => {
+        onSuccess?.();
+        onClose();
+      }, 1000);
     } catch (err: any) {
-      setError(err.message || "Failed to update password. Please request a new recovery link.");
+      setError(err?.message || "Failed to update password. Please try again.");
     } finally {
       setLoading(false);
     }
   }
 
-  /* ─────────────────────────────────────────────────────────────
-     6. DEMO & GOOGLE LOGINS
-  ───────────────────────────────────────────────────────────── */
-  async function handleGoogle() {
+  /* ═══════════════════════════════════════════════════════════════
+     5. MAGIC CODE (PASSWORDLESS OTP LOGIN)
+  ═══════════════════════════════════════════════════════════════ */
+  async function handleSendMagicCode(event: React.FormEvent) {
+    event.preventDefault();
     setError("");
     setMessage("");
-    setLoading(true);
 
-    const googleReady = await isGoogleOAuthEnabled();
-    if (!googleReady) {
-      setLoading(false);
-      setError("Google OAuth is not configured in Supabase. Please sign in with Email & Password or 1-Click Mode below.");
-      toast.error("Google Sign-in not configured", {
-        description: "Please sign in with Email/Password or 1-Click Demo below.",
-      });
+    if (!email.includes("@")) {
+      setError("Please enter a valid email address.");
       return;
     }
 
-    const { error: authError } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: window.location.origin },
-    });
-    if (authError) {
-      setError(authError.message);
+    setLoading(true);
+    try {
+      const { error: otpErr } = await supabase.auth.signInWithOtp({
+        email: email.trim(),
+        options: {
+          shouldCreateUser: true,
+          emailRedirectTo: window.location.origin,
+        },
+      });
+
+      if (otpErr) throw otpErr;
+
+      setMessage(`A 6-digit sign-in code has been sent to ${email.trim()}.`);
+      setResendTimer(60);
+      setRecoveryMethod("email");
+      if (onSwitchMode) {
+        setTimeout(() => onSwitchMode("verify_otp"), 1000);
+      }
+    } catch (err: any) {
+      setError(err?.message || "Could not send code. Please try again.");
+    } finally {
       setLoading(false);
     }
-  }
-
-  async function handleDemoStudent() {
-    const demoProfile = {
-      name: "Alex Sterling (Demo)",
-      email: "demo@starfix.vip",
-      goalId: "coding",
-      goalTitle: "Coding & Development",
-      level: "intermediate" as const,
-      dailyTime: "45min",
-      preference: "roadmap",
-      country: "India",
-    };
-    localStorage.setItem("userProfile", JSON.stringify(demoProfile));
-    localStorage.setItem("loggedIn", "true");
-    localStorage.setItem("starfix:userRole", "student");
-    window.dispatchEvent(new Event("starfix:auth-changed"));
-
-    // Record login telemetry so Admin Dashboard receives it in real-time
-    await recordUserLogin({
-      email: "demo@starfix.vip",
-      name: "Alex Sterling (Demo)",
-      role: "student",
-      loginMethod: "1-Click Student Mode",
-      country: "India",
-    });
-
-    toast.success("Signed in as Demo Student", { description: "Full platform access unlocked" });
-    onSuccess?.();
-    onClose();
-  }
-
-  async function handleDemoMentor() {
-    const mentorProfile = {
-      name: "Kunal Valecha",
-      email: "kvalecha186@gmail.com",
-      role: "mentor" as const,
-      goalId: "coding",
-      goalTitle: "Software Engineering & Mentorship",
-      level: "advanced" as const,
-      dailyTime: "60min",
-      preference: "mentorship" as const,
-      country: "India",
-      careerGoal: "Senior Tech Mentor",
-    };
-    localStorage.setItem("userProfile", JSON.stringify(mentorProfile));
-    localStorage.setItem("loggedIn", "true");
-    localStorage.setItem("starfix:userRole", "mentor");
-    window.dispatchEvent(new Event("starfix:auth-changed"));
-
-    // Record login telemetry for Admin Dashboard
-    await recordUserLogin({
-      email: "kvalecha186@gmail.com",
-      name: "Kunal Valecha",
-      role: "mentor",
-      loginMethod: "1-Click Mentor Mode",
-      country: "India",
-    });
-
-    toast.success("Welcome, Mentor", { description: "Entered Mentor Mode" });
-    onSuccess?.();
-    onClose();
   }
 
   return (
@@ -527,31 +411,29 @@ export function SupabaseAuthModal({ mode, onClose, onSuccess, onSwitchMode }: Pr
           style={{
             position: "fixed",
             inset: 0,
-            zIndex: 300,
-            background: "rgba(4,4,12,.82)",
-            backdropFilter: "blur(12px)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
+            background: "rgba(11,10,18,.82)",
+            backdropFilter: "blur(14px)",
+            zIndex: 10000,
+            display: "grid",
+            placeItems: "center",
             padding: 20,
           }}
         >
           <motion.div
-            initial={{ opacity: 0, y: 18, scale: 0.97 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 12, scale: 0.98 }}
-            onClick={(event) => event.stopPropagation()}
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.95, opacity: 0 }}
+            onClick={(e) => e.stopPropagation()}
             style={{
               width: "100%",
               maxWidth: 440,
+              background: "#12111A",
+              border: "1px solid rgba(212,175,55,.24)",
+              borderRadius: 22,
+              padding: "32px 30px",
+              boxShadow: "0 24px 64px rgba(0,0,0,.6)",
+              color: "#FAF9F6",
               position: "relative",
-              borderRadius: 24,
-              padding: "36px 32px 28px",
-              background: "#11101a",
-              border: "1px solid rgba(212,175,55,.26)",
-              boxShadow: "0 30px 90px rgba(0,0,0,.65), 0 0 30px rgba(212,175,55,.08)",
-              color: INK,
-              fontFamily: "Inter, sans-serif",
             }}
           >
             {/* Close Button */}
@@ -604,142 +486,84 @@ export function SupabaseAuthModal({ mode, onClose, onSuccess, onSwitchMode }: Pr
                     : "Sign in to access your customized growth path and mentor sessions."}
                 </p>
 
-                {/* 1-Click Instant Access */}
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
-                  <button
-                    type="button"
-                    onClick={handleDemoStudent}
-                    disabled={loading}
-                    style={{
-                      padding: "10px 12px",
-                      borderRadius: 12,
-                      border: "1px solid rgba(212,175,55,.35)",
-                      background: "rgba(212,175,55,.08)",
-                      color: GOLD,
-                      fontWeight: 600,
-                      fontSize: 12,
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: 6,
-                    }}
-                  >
-                    <Sparkles size={13} color={GOLD} /> 1-Click Student
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleDemoMentor}
-                    disabled={loading}
-                    style={{
-                      padding: "10px 12px",
-                      borderRadius: 12,
-                      border: "1px solid rgba(167,139,250,.4)",
-                      background: "rgba(167,139,250,.1)",
-                      color: "#C4B5FD",
-                      fontWeight: 600,
-                      fontSize: 12,
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: 6,
-                    }}
-                  >
-                    <Sparkles size={13} color="#C4B5FD" /> Mentor Mode
-                  </button>
-                </div>
-
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 10,
-                    marginBottom: 16,
-                    color: "rgba(250,249,246,.25)",
-                    fontSize: 11,
-                    textTransform: "uppercase",
-                    letterSpacing: ".08em",
-                  }}
-                >
-                  <span style={{ flex: 1, height: 1, background: "rgba(255,255,255,.08)" }} /> OR WITH EMAIL
-                  <span style={{ flex: 1, height: 1, background: "rgba(255,255,255,.08)" }} />
-                </div>
-
-                <form onSubmit={handleSubmit} style={{ display: "grid", gap: 12 }}>
+                <form onSubmit={handleSubmit} style={{ display: "grid", gap: 13 }}>
                   {mode === "signup" && (
                     <input
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       placeholder="Full name"
                       style={fieldStyle}
+                      required
                     />
                   )}
-
                   <input
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="Email address"
+                    placeholder="Email address (e.g. you@gmail.com)"
                     style={fieldStyle}
+                    required
                   />
-
-                  <div>
-                    <div
+                  <div style={{ position: "relative" }}>
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Password"
+                      style={{ ...fieldStyle, paddingRight: 42 }}
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((v) => !v)}
                       style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        marginBottom: 6,
+                        position: "absolute",
+                        right: 12,
+                        top: 11,
+                        background: "none",
+                        border: 0,
+                        color: "rgba(250,249,246,.4)",
+                        cursor: "pointer",
                       }}
                     >
-                      <label style={{ fontSize: 11.5, color: "rgba(250,249,246,.5)", fontWeight: 500 }}>Password</label>
-                      {mode === "login" && (
-                        <button
-                          type="button"
-                          onClick={() => onSwitchMode("forgot_password")}
-                          style={{
-                            background: "none",
-                            border: 0,
-                            padding: 0,
-                            color: GOLD,
-                            fontSize: 11.5,
-                            fontWeight: 600,
-                            cursor: "pointer",
-                            textDecoration: "underline",
-                            textUnderlineOffset: "3px",
-                          }}
-                        >
-                          Forgot password?
-                        </button>
-                      )}
-                    </div>
-                    <div style={{ position: "relative" }}>
-                      <input
-                        type={showPassword ? "text" : "password"}
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        placeholder="••••••••"
-                        style={{ ...fieldStyle, paddingRight: 42 }}
-                      />
+                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+
+                  {/* Forgot Password Link on Login Screen */}
+                  {mode === "login" && (
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: -2 }}>
                       <button
                         type="button"
-                        onClick={() => setShowPassword((v) => !v)}
+                        onClick={() => onSwitchMode?.("magic_code")}
                         style={{
-                          position: "absolute",
-                          right: 12,
-                          top: 11,
                           background: "none",
                           border: 0,
-                          color: "rgba(250,249,246,.4)",
+                          color: "rgba(250,249,246,.5)",
+                          fontSize: 12,
                           cursor: "pointer",
+                          padding: 0,
                         }}
                       >
-                        {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                        Sign in without password
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onSwitchMode?.("forgot_password")}
+                        style={{
+                          background: "none",
+                          border: 0,
+                          color: GOLD,
+                          fontSize: 12,
+                          fontWeight: 600,
+                          cursor: "pointer",
+                          padding: 0,
+                        }}
+                      >
+                        Forgot password?
                       </button>
                     </div>
-                  </div>
+                  )}
 
                   {error && (
                     <div
@@ -760,9 +584,9 @@ export function SupabaseAuthModal({ mode, onClose, onSuccess, onSwitchMode }: Pr
                   {message && (
                     <div
                       style={{
-                        color: "#A7F3D0",
-                        background: "rgba(16,185,129,.12)",
-                        border: "1px solid rgba(16,185,129,.3)",
+                        color: "#86EFAC",
+                        background: "rgba(34,197,94,.12)",
+                        border: "1px solid rgba(34,197,94,.3)",
                         padding: "9px 12px",
                         borderRadius: 8,
                         fontSize: 12,
@@ -785,71 +609,46 @@ export function SupabaseAuthModal({ mode, onClose, onSuccess, onSwitchMode }: Pr
                       border: 0,
                       borderRadius: 12,
                       background: `linear-gradient(135deg, ${GOLD_LIGHT}, ${GOLD})`,
-                      color: "#0B0A12",
+                      color: INK,
                       fontWeight: 700,
                       fontSize: 14,
                       cursor: loading ? "not-allowed" : "pointer",
                       marginTop: 4,
-                      boxShadow: "0 0 20px rgba(212,175,55,.25)",
                     }}
                   >
-                    {loading ? "Please wait…" : mode === "signup" ? "Create Account" : "Sign In"}
+                    {loading ? "Processing…" : mode === "signup" ? "Create Account" : "Sign In"}
                     <ArrowRight size={16} />
                   </button>
                 </form>
 
-                {/* Passwordless OTP Link */}
-                {mode === "login" && (
+                <div style={{ textAlign: "center", marginTop: 18, fontSize: 13, color: "rgba(250,249,246,.55)" }}>
+                  {mode === "signup" ? "Already have an account?" : "Don't have an account?"}{" "}
                   <button
                     type="button"
-                    onClick={() => onSwitchMode("magic_code")}
+                    onClick={() => onSwitchMode?.(mode === "signup" ? "login" : "signup")}
                     style={{
-                      width: "100%",
-                      marginTop: 12,
-                      padding: "9px 12px",
-                      background: "rgba(255,255,255,.03)",
-                      border: "1px solid rgba(255,255,255,.08)",
-                      borderRadius: 10,
-                      color: "rgba(250,249,246,.7)",
+                      background: "none",
+                      border: 0,
+                      color: GOLD,
                       cursor: "pointer",
-                      fontSize: 12,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: 7,
+                      fontWeight: 600,
+                      padding: 0,
                     }}
                   >
-                    <KeyRound size={13} color={GOLD} /> Sign in with 6-digit OTP code (No password needed)
+                    {mode === "signup" ? "Sign in" : "Create one"}
                   </button>
-                )}
-
-                {/* Switch between Login and Signup */}
-                <button
-                  type="button"
-                  onClick={() => onSwitchMode(mode === "signup" ? "login" : "signup")}
-                  style={{
-                    width: "100%",
-                    marginTop: 18,
-                    background: "none",
-                    border: 0,
-                    color: "rgba(250,249,246,.45)",
-                    cursor: "pointer",
-                    fontSize: 12,
-                  }}
-                >
-                  {mode === "signup" ? "Already have an account? Log in" : "New to Starfix? Create an account"}
-                </button>
+                </div>
               </>
             )}
 
             {/* ═══════════════════════════════════════════════════════════
-                VIEW: FORGOT PASSWORD (EMAIL & PHONE RECOVERY)
+                VIEW: FORGOT PASSWORD
             ═══════════════════════════════════════════════════════════ */}
             {mode === "forgot_password" && (
               <div>
                 <button
                   type="button"
-                  onClick={() => onSwitchMode("login")}
+                  onClick={() => onSwitchMode?.("login")}
                   style={{
                     background: "none",
                     border: 0,
@@ -866,28 +665,35 @@ export function SupabaseAuthModal({ mode, onClose, onSuccess, onSwitchMode }: Pr
                 </button>
 
                 <h2 style={{ fontFamily: "Playfair Display, serif", margin: "0 0 6px", fontSize: 24 }}>
-                  Recover Password
+                  Recover Your Password
                 </h2>
                 <p style={{ color: "rgba(250,249,246,.5)", fontSize: 13, lineHeight: 1.5, margin: "0 0 18px" }}>
-                  Select how you want to receive your password reset verification code or secure recovery link.
+                  Choose how you'd like to receive your recovery link and verification code:
                 </p>
 
-                {/* Method selector tabs */}
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 16 }}>
+                {/* Tabs: Email vs WhatsApp/SMS */}
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: 8,
+                    background: "rgba(255,255,255,.04)",
+                    padding: 4,
+                    borderRadius: 12,
+                    marginBottom: 16,
+                  }}
+                >
                   <button
                     type="button"
-                    onClick={() => {
-                      setRecoveryMethod("email");
-                      setError("");
-                    }}
+                    onClick={() => setRecoveryMethod("email")}
                     style={{
-                      padding: "10px",
-                      borderRadius: 10,
-                      border: `1px solid ${recoveryMethod === "email" ? GOLD : "rgba(255,255,255,.1)"}`,
-                      background: recoveryMethod === "email" ? "rgba(212,175,55,.12)" : "rgba(255,255,255,.03)",
+                      padding: "8px 12px",
+                      borderRadius: 9,
+                      border: 0,
+                      background: recoveryMethod === "email" ? "rgba(212,175,55,.18)" : "transparent",
                       color: recoveryMethod === "email" ? GOLD : "rgba(250,249,246,.6)",
                       fontWeight: 600,
-                      fontSize: 12,
+                      fontSize: 12.5,
                       cursor: "pointer",
                       display: "flex",
                       alignItems: "center",
@@ -897,21 +703,17 @@ export function SupabaseAuthModal({ mode, onClose, onSuccess, onSwitchMode }: Pr
                   >
                     <Mail size={14} /> Gmail / Email
                   </button>
-
                   <button
                     type="button"
-                    onClick={() => {
-                      setRecoveryMethod("phone");
-                      setError("");
-                    }}
+                    onClick={() => setRecoveryMethod("whatsapp")}
                     style={{
-                      padding: "10px",
-                      borderRadius: 10,
-                      border: `1px solid ${recoveryMethod === "phone" ? GOLD : "rgba(255,255,255,.1)"}`,
-                      background: recoveryMethod === "phone" ? "rgba(212,175,55,.12)" : "rgba(255,255,255,.03)",
-                      color: recoveryMethod === "phone" ? GOLD : "rgba(250,249,246,.6)",
+                      padding: "8px 12px",
+                      borderRadius: 9,
+                      border: 0,
+                      background: recoveryMethod === "whatsapp" ? "rgba(37,211,102,.18)" : "transparent",
+                      color: recoveryMethod === "whatsapp" ? "#4ADE80" : "rgba(250,249,246,.6)",
                       fontWeight: 600,
-                      fontSize: 12,
+                      fontSize: 12.5,
                       cursor: "pointer",
                       display: "flex",
                       alignItems: "center",
@@ -919,7 +721,7 @@ export function SupabaseAuthModal({ mode, onClose, onSuccess, onSwitchMode }: Pr
                       gap: 6,
                     }}
                   >
-                    <Phone size={14} /> Phone / WhatsApp
+                    <Phone size={14} /> WhatsApp / Phone
                   </button>
                 </div>
 
@@ -927,7 +729,7 @@ export function SupabaseAuthModal({ mode, onClose, onSuccess, onSwitchMode }: Pr
                   {recoveryMethod === "email" ? (
                     <div>
                       <label style={{ display: "block", fontSize: 11.5, color: "rgba(250,249,246,.5)", marginBottom: 6 }}>
-                        Registered Email Address
+                        Registered Gmail / Email Address
                       </label>
                       <input
                         type="email"
@@ -936,20 +738,22 @@ export function SupabaseAuthModal({ mode, onClose, onSuccess, onSwitchMode }: Pr
                         placeholder="you@gmail.com"
                         style={fieldStyle}
                         autoFocus
+                        required
                       />
                     </div>
                   ) : (
                     <div>
                       <label style={{ display: "block", fontSize: 11.5, color: "rgba(250,249,246,.5)", marginBottom: 6 }}>
-                        Phone Number (with Country Code)
+                        Mobile Phone Number (with Country Code)
                       </label>
                       <input
                         type="tel"
-                        value={phone}
-                        onChange={(e) => setPhone(e.target.value)}
-                        placeholder="+91 94600 00000"
+                        value={phoneNumber}
+                        onChange={(e) => setPhoneNumber(e.target.value)}
+                        placeholder="+91 98765 43210"
                         style={fieldStyle}
                         autoFocus
+                        required
                       />
                     </div>
                   )}
@@ -973,9 +777,9 @@ export function SupabaseAuthModal({ mode, onClose, onSuccess, onSwitchMode }: Pr
                   {message && (
                     <div
                       style={{
-                        color: "#A7F3D0",
-                        background: "rgba(16,185,129,.12)",
-                        border: "1px solid rgba(16,185,129,.3)",
+                        color: "#86EFAC",
+                        background: "rgba(34,197,94,.12)",
+                        border: "1px solid rgba(34,197,94,.3)",
                         padding: "9px 12px",
                         borderRadius: 8,
                         fontSize: 12,
@@ -998,62 +802,44 @@ export function SupabaseAuthModal({ mode, onClose, onSuccess, onSwitchMode }: Pr
                       border: 0,
                       borderRadius: 12,
                       background: `linear-gradient(135deg, ${GOLD_LIGHT}, ${GOLD})`,
-                      color: "#0B0A12",
+                      color: INK,
                       fontWeight: 700,
-                      fontSize: 13.5,
+                      fontSize: 14,
                       cursor: loading ? "not-allowed" : "pointer",
-                      marginTop: 6,
+                      marginTop: 4,
                     }}
                   >
-                    {loading ? (
-                      "Sending…"
-                    ) : (
-                      <>
-                        <span>Send Recovery Code & Link</span>
-                        <ArrowRight size={15} />
-                      </>
-                    )}
+                    {loading ? "Sending..." : "Send Verification Code"}
+                    <Send size={15} />
                   </button>
 
-                  {/* Instant WhatsApp Option */}
-                  {recoveryMethod === "phone" && (
-                    <a
-                      href={`https://wa.me/919460000000?text=${encodeURIComponent(
-                        `Hi Starfix Support, I am requesting a password reset code for my account (${email || phone || "User"}).`
-                      )}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                  <div style={{ textAlign: "center", marginTop: 4 }}>
+                    <button
+                      type="button"
+                      onClick={() => onSwitchMode?.("verify_otp")}
                       style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: 8,
-                        padding: "11px 14px",
-                        borderRadius: 12,
-                        border: "1px solid rgba(37,211,102,.4)",
-                        background: "rgba(37,211,102,.1)",
-                        color: "#4ADE80",
-                        fontWeight: 600,
-                        fontSize: 12.5,
-                        textDecoration: "none",
-                        marginTop: 4,
+                        background: "none",
+                        border: 0,
+                        color: "rgba(250,249,246,.45)",
+                        fontSize: 12,
+                        cursor: "pointer",
                       }}
                     >
-                      <span>💬 Recover via Official WhatsApp VIP Support</span>
-                    </a>
-                  )}
+                      Already have a code? Enter it here →
+                    </button>
+                  </div>
                 </form>
               </div>
             )}
 
             {/* ═══════════════════════════════════════════════════════════
-                VIEW: ENTER 6-DIGIT VERIFICATION CODE (OTP)
+                VIEW: VERIFY OTP (6-DIGIT CODE)
             ═══════════════════════════════════════════════════════════ */}
             {mode === "verify_otp" && (
               <div>
                 <button
                   type="button"
-                  onClick={() => onSwitchMode("forgot_password")}
+                  onClick={() => onSwitchMode?.("forgot_password")}
                   style={{
                     background: "none",
                     border: 0,
@@ -1073,32 +859,30 @@ export function SupabaseAuthModal({ mode, onClose, onSuccess, onSwitchMode }: Pr
                   Enter Verification Code
                 </h2>
                 <p style={{ color: "rgba(250,249,246,.5)", fontSize: 13, lineHeight: 1.5, margin: "0 0 18px" }}>
-                  We sent a 6-digit code to <strong style={{ color: GOLD }}>{email || phone}</strong>. Enter it below to
-                  verify and proceed.
+                  Please enter the 6-digit verification code sent to{" "}
+                  <strong style={{ color: GOLD }}>
+                    {recoveryMethod === "email" ? email || "your email" : phoneNumber || "your phone"}
+                  </strong>
+                  .
                 </p>
 
                 <form onSubmit={handleVerifyOtp} style={{ display: "grid", gap: 14 }}>
-                  <div>
-                    <label style={{ display: "block", fontSize: 11.5, color: "rgba(250,249,246,.5)", marginBottom: 6 }}>
-                      6-Digit Security Code
-                    </label>
-                    <input
-                      type="text"
-                      maxLength={8}
-                      value={otpCode}
-                      onChange={(e) => setOtpCode(e.target.value.replace(/[^a-zA-Z0-9]/g, ""))}
-                      placeholder="123456"
-                      style={{
-                        ...fieldStyle,
-                        fontSize: 22,
-                        letterSpacing: ".25em",
-                        textAlign: "center",
-                        fontWeight: 700,
-                        fontFamily: "monospace",
-                      }}
-                      autoFocus
-                    />
-                  </div>
+                  <input
+                    type="text"
+                    maxLength={8}
+                    value={otpCode}
+                    onChange={(e) => setOtpCode(e.target.value.trim())}
+                    placeholder="123456"
+                    style={{
+                      ...fieldStyle,
+                      fontSize: 22,
+                      letterSpacing: "0.25em",
+                      textAlign: "center",
+                      fontWeight: 700,
+                      fontFamily: "monospace",
+                    }}
+                    autoFocus
+                  />
 
                   {error && (
                     <div
@@ -1116,8 +900,24 @@ export function SupabaseAuthModal({ mode, onClose, onSuccess, onSwitchMode }: Pr
                     </div>
                   )}
 
+                  {message && (
+                    <div
+                      style={{
+                        color: "#86EFAC",
+                        background: "rgba(34,197,94,.12)",
+                        border: "1px solid rgba(34,197,94,.3)",
+                        padding: "9px 12px",
+                        borderRadius: 8,
+                        fontSize: 12,
+                        lineHeight: 1.5,
+                      }}
+                    >
+                      {message}
+                    </div>
+                  )}
+
                   <button
-                    disabled={loading || otpCode.trim().length < 6}
+                    disabled={loading}
                     type="submit"
                     style={{
                       display: "flex",
@@ -1128,36 +928,45 @@ export function SupabaseAuthModal({ mode, onClose, onSuccess, onSwitchMode }: Pr
                       border: 0,
                       borderRadius: 12,
                       background: `linear-gradient(135deg, ${GOLD_LIGHT}, ${GOLD})`,
-                      color: "#0B0A12",
+                      color: INK,
                       fontWeight: 700,
                       fontSize: 14,
-                      cursor: loading || otpCode.trim().length < 6 ? "not-allowed" : "pointer",
-                      opacity: otpCode.trim().length < 6 ? 0.6 : 1,
+                      cursor: loading ? "not-allowed" : "pointer",
                     }}
                   >
-                    {loading ? "Verifying…" : "Verify Code & Continue"}
-                    <CheckCircle2 size={16} />
+                    {loading ? "Verifying…" : "Verify Code & Proceed"}
+                    <ShieldCheck size={16} />
                   </button>
 
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 8 }}>
-                    <span style={{ fontSize: 12, color: "rgba(250,249,246,.4)" }}>Didn't receive the code?</span>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginTop: 4 }}>
                     <button
                       type="button"
-                      disabled={resendTimer > 0}
+                      disabled={resendTimer > 0 || loading}
                       onClick={handleSendRecovery}
                       style={{
                         background: "none",
                         border: 0,
-                        color: resendTimer > 0 ? "rgba(250,249,246,.3)" : GOLD,
-                        fontSize: 12,
-                        fontWeight: 600,
+                        color: resendTimer > 0 ? "rgba(250,249,246,.35)" : GOLD,
                         cursor: resendTimer > 0 ? "not-allowed" : "pointer",
                         display: "flex",
                         alignItems: "center",
                         gap: 4,
                       }}
                     >
-                      <RotateCw size={12} /> {resendTimer > 0 ? `Resend in ${resendTimer}s` : "Resend code"}
+                      <RotateCw size={12} />
+                      {resendTimer > 0 ? `Resend in ${resendTimer}s` : "Resend Code"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onSwitchMode?.("login")}
+                      style={{
+                        background: "none",
+                        border: 0,
+                        color: "rgba(250,249,246,.45)",
+                        cursor: "pointer",
+                      }}
+                    >
+                      Back to Sign In
                     </button>
                   </div>
                 </form>
@@ -1189,6 +998,7 @@ export function SupabaseAuthModal({ mode, onClose, onSuccess, onSwitchMode }: Pr
                         placeholder="At least 6 characters"
                         style={{ ...fieldStyle, paddingRight: 42 }}
                         autoFocus
+                        required
                       />
                       <button
                         type="button"
@@ -1218,6 +1028,7 @@ export function SupabaseAuthModal({ mode, onClose, onSuccess, onSwitchMode }: Pr
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       placeholder="Repeat new password"
                       style={fieldStyle}
+                      required
                     />
                   </div>
 
@@ -1237,6 +1048,22 @@ export function SupabaseAuthModal({ mode, onClose, onSuccess, onSwitchMode }: Pr
                     </div>
                   )}
 
+                  {message && (
+                    <div
+                      style={{
+                        color: "#86EFAC",
+                        background: "rgba(34,197,94,.12)",
+                        border: "1px solid rgba(34,197,94,.3)",
+                        padding: "9px 12px",
+                        borderRadius: 8,
+                        fontSize: 12,
+                        lineHeight: 1.5,
+                      }}
+                    >
+                      {message}
+                    </div>
+                  )}
+
                   <button
                     disabled={loading}
                     type="submit"
@@ -1249,7 +1076,7 @@ export function SupabaseAuthModal({ mode, onClose, onSuccess, onSwitchMode }: Pr
                       border: 0,
                       borderRadius: 12,
                       background: `linear-gradient(135deg, ${GOLD_LIGHT}, ${GOLD})`,
-                      color: "#0B0A12",
+                      color: INK,
                       fontWeight: 700,
                       fontSize: 14,
                       cursor: loading ? "not-allowed" : "pointer",
@@ -1257,7 +1084,7 @@ export function SupabaseAuthModal({ mode, onClose, onSuccess, onSwitchMode }: Pr
                     }}
                   >
                     {loading ? "Updating…" : "Update Password & Sign In"}
-                    <ArrowRight size={16} />
+                    <CheckCircle2 size={16} />
                   </button>
                 </form>
               </div>
@@ -1270,7 +1097,7 @@ export function SupabaseAuthModal({ mode, onClose, onSuccess, onSwitchMode }: Pr
               <div>
                 <button
                   type="button"
-                  onClick={() => onSwitchMode("login")}
+                  onClick={() => onSwitchMode?.("login")}
                   style={{
                     background: "none",
                     border: 0,
@@ -1302,6 +1129,7 @@ export function SupabaseAuthModal({ mode, onClose, onSuccess, onSwitchMode }: Pr
                     placeholder="you@gmail.com"
                     style={fieldStyle}
                     autoFocus
+                    required
                   />
 
                   {error && (
@@ -1320,6 +1148,22 @@ export function SupabaseAuthModal({ mode, onClose, onSuccess, onSwitchMode }: Pr
                     </div>
                   )}
 
+                  {message && (
+                    <div
+                      style={{
+                        color: "#86EFAC",
+                        background: "rgba(34,197,94,.12)",
+                        border: "1px solid rgba(34,197,94,.3)",
+                        padding: "9px 12px",
+                        borderRadius: 8,
+                        fontSize: 12,
+                        lineHeight: 1.5,
+                      }}
+                    >
+                      {message}
+                    </div>
+                  )}
+
                   <button
                     disabled={loading}
                     type="submit"
@@ -1332,7 +1176,7 @@ export function SupabaseAuthModal({ mode, onClose, onSuccess, onSwitchMode }: Pr
                       border: 0,
                       borderRadius: 12,
                       background: `linear-gradient(135deg, ${GOLD_LIGHT}, ${GOLD})`,
-                      color: "#0B0A12",
+                      color: INK,
                       fontWeight: 700,
                       fontSize: 14,
                       cursor: loading ? "not-allowed" : "pointer",
@@ -1340,7 +1184,7 @@ export function SupabaseAuthModal({ mode, onClose, onSuccess, onSwitchMode }: Pr
                     }}
                   >
                     {loading ? "Sending code…" : "Send 6-Digit Code to Gmail"}
-                    <ArrowRight size={16} />
+                    <KeyRound size={16} />
                   </button>
                 </form>
               </div>

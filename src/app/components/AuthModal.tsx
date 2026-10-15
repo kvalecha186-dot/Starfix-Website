@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { X, ArrowRight, Eye, EyeOff, MailCheck, Sparkles } from "lucide-react";
-import { toast } from "sonner";
+import { X, ArrowRight, Eye, EyeOff, MailCheck } from "lucide-react";
 import { supabase } from "../lib/supabase";
 
 const GOLD = "#D4AF37";
@@ -95,27 +94,6 @@ export function AuthModal({
       onSuccess();
     }
   };
-
-  const handleDemoLogin = () => {
-    const demoProfile = {
-      name: "Alex Sterling (Demo)",
-      email: "demo@starfix.vip",
-      goalId: "coding",
-      goalTitle: "Coding & Development",
-      level: "intermediate" as const,
-      dailyTime: "45min",
-      preference: "roadmap",
-      country: "United States",
-      learningLanguage: "en" as const,
-    };
-    localStorage.setItem("userProfile", JSON.stringify(demoProfile));
-    localStorage.setItem("loggedIn", "true");
-    window.dispatchEvent(new Event("starfix:auth-changed"));
-    toast.success("Signed in as Demo Student", { description: "Full platform access unlocked" });
-    onSuccess();
-    onClose();
-  };
-
 
   return (
     <motion.div
@@ -232,34 +210,6 @@ export function AuthModal({
           </div>
         ) : (
         <>
-        <motion.button
-          type="button"
-          onClick={handleDemoLogin}
-          disabled={loading}
-          whileHover={{ y: loading ? 0 : -1 }}
-          whileTap={{ scale: loading ? 1 : 0.98 }}
-          style={{
-            width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-            padding: "11px 14px", borderRadius: 12,
-            background: "rgba(212,175,55,0.1)",
-            border: "1px solid rgba(212,175,55,0.35)",
-            color: GOLD, fontSize: "0.85rem", fontWeight: 600,
-            cursor: loading ? "not-allowed" : "pointer",
-            fontFamily: "'Inter', sans-serif",
-            transition: "background 0.2s, border-color 0.2s",
-            marginBottom: 20,
-          }}
-        >
-          <Sparkles size={14} color={GOLD} /> 1-Click Demo Student Access
-        </motion.button>
-
-        {/* Divider */}
-        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
-          <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.08)" }} />
-          <span style={{ fontSize: "0.68rem", color: "rgba(250,249,246,0.28)", letterSpacing: "0.05em", textTransform: "uppercase" }}>or</span>
-          <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.08)" }} />
-        </div>
-
         <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           {isSignup && (
             <div>
