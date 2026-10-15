@@ -92,6 +92,10 @@ export function CheckoutModal({
   };
 
   const handleConfirmAndPay = async () => {
+    if (/month/i.test(session.duration) || /monthly/i.test(session.name)) {
+      toast.error("Monthly mentorship packages are not available for one-time checkout yet. Please choose an individual session.");
+      return;
+    }
     setIsProcessing(true);
     setProcessingStep("Creating a secure booking...");
     try {
