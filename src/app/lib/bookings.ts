@@ -81,7 +81,7 @@ async function currentUserId(): Promise<string | null> {
 async function persistBooking(booking: Booking, requireSessionType = false): Promise<string | null> {
   const studentId = await currentUserId();
   if (!studentId) return null;
-  const { data: mentor } = await supabase.from("mentors").select("id").eq("legacy_id", booking.mentorId).maybeSingle();
+  const { data: mentor } = await supabase.from("public_mentor_directory").select("id").eq("legacy_id", booking.mentorId).maybeSingle();
   if (!mentor?.id) return null;
   const { data: sessionType } = await supabase.from("session_types").select("id").eq("mentor_id", mentor.id).eq("title", booking.sessionType).maybeSingle();
   if (requireSessionType && !sessionType?.id) return null;
