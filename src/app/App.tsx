@@ -140,8 +140,22 @@ function AppShell() {
         });
         setAuthLoading(false);
       });
+      if (event === "PASSWORD_RECOVERY") {
+        setAuthMode("set_new_password");
+        setAuthLoading(false);
+        return;
+      }
       if (event === "SIGNED_IN") setAuthMode(null);
     });
+
+    // Detect recovery tokens in URL on load
+    if (typeof window !== "undefined") {
+      const hash = window.location.hash || "";
+      const search = window.location.search || "";
+      if (hash.includes("type=recovery") || search.includes("mode=reset_password") || search.includes("type=recovery")) {
+        setAuthMode("set_new_password");
+      }
+    }
 
     const onCustomAuth = () => void syncSession();
     window.addEventListener("starfix:auth-changed", onCustomAuth);
