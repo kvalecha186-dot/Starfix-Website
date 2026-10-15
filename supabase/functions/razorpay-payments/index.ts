@@ -133,6 +133,33 @@ async function createOrder(req: Request) {
   return response(200, { order_id: order.id, amount: amountPaise, currency, key_id: RAZORPAY_KEY_ID });
 }
 
+async function confirmFreeBooking(req: Request) {
+  const user = await getUser(req);
+  if (!user) return response(401, { error: "Authentication required" });
+  const body = await req.json().catch(() => null);
+  const bookingId = typeof body?.booking_id === "string" ? body.booking_id : "";
+  if (!bookingId) return response(400, { error: "booking_id is required" });
+  const { data: booking, error: bookingError } = await admin.from("bookings")
+    .select("id,student_id,mentor_id,session_type_id,status")
+    .eq("id", bookingId).maybeSingle();
+  if (bookingError) throw bookingError;
+  if (!booking || booking.student_id !== user.id) return response(404, { error: "Booking not found" });
+  if (String(booking.status).toLowerCase() !== "pending") return response(409, { error: "Only pending bookings can be confirmed" });
+  if (!booking.session_type_id || !booking.mentor_id) return response(422, { error: "Booking has no verified session type" });
+  const { data: session, error: sessionError } = await admin.from("session_types")
+    .select("id,mentor_id,price,currency,active")
+    .eq("id", booking.session_type_id).maybeSingle();
+  if (sessionError) throw sessionError;
+  if (!session || !session.active || session.mentor_id !== booking.mentor_id
+      || Number(session.price) !== 0 || String(session.currency || "INR").toUpperCase() !== "INR") {
+    return response(409, { error: "This is not an eligible free session" });
+  }
+  const { error: updateError } = await admin.from("bookings").update({ status: "confirmed" })
+    .eq("id", booking.id).eq("student_id", user.id).eq("status", "pending");
+  if (updateError) throw updateError;
+  return response(200, { ok: true, status: "confirmed" });
+}
+
 async function verifyCheckout(req: Request) {
   const user = await getUser(req);
   if (!user) return response(401, { error: "Authentication required" });
@@ -225,6 +252,7 @@ Deno.serve(async (req: Request) => {
     const action = url.searchParams.get("action");
     if (action === "webhook") return await webhook(req);
     if (action === "create-order") return await createOrder(req);
+    if (action === "confirm-free-booking") return await confirmFreeBooking(req);
     if (action === "verify-payment") return await verifyCheckout(req);
     return response(400, { error: "Use action=create-order, verify-payment, or webhook" });
   } catch (error) {
