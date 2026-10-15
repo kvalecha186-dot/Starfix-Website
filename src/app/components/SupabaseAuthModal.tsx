@@ -79,39 +79,7 @@ export function SupabaseAuthModal({ mode, onClose, onSuccess, onSwitchMode }: Pr
           email: email.trim(),
           password,
         });
-        if (authError) {
-          if (authError.message.toLowerCase().includes("confirm") || authError.message.toLowerCase().includes("invalid")) {
-            let role: "mentor" | "student" = "student";
-            if (localStorage.getItem("starfix:userRole") === "mentor" || email.toLowerCase().includes("kvalecha") || email.toLowerCase().includes("mentor")) {
-              role = "mentor";
-            } else {
-              try {
-                const { data: mentorData } = await supabase.from("mentors").select("id").eq("email", email.trim()).maybeSingle();
-                if (mentorData?.id) role = "mentor";
-              } catch {}
-            }
-            const profile = {
-              name: name.trim() || email.split("@")[0] || "Starfix User",
-              email: email.trim(),
-              role: role as any,
-              goalId: "coding",
-              goalTitle: "Coding & Mentorship",
-              level: "advanced" as const,
-              dailyTime: "60min",
-              preference: "mentorship" as any,
-              country: "India",
-            };
-            localStorage.setItem("starfix:userRole", role);
-            localStorage.setItem("userProfile", JSON.stringify(profile));
-            localStorage.setItem("loggedIn", "true");
-            window.dispatchEvent(new Event("starfix:auth-changed"));
-            toast.success(`Welcome to Starfix (${role === "mentor" ? "Mentor Mode" : "Student Mode"})`);
-            onSuccess?.();
-            onClose();
-            return;
-          }
-          throw authError;
-        }
+        if (authError) throw authError;
       }
 
       onSuccess?.();
@@ -123,28 +91,6 @@ export function SupabaseAuthModal({ mode, onClose, onSuccess, onSwitchMode }: Pr
     }
   }
 
-  function handleMentorLogin() {
-    const mentorProfile = {
-      name: name.trim() || "Kunal Valecha",
-      email: email.trim() || "kvalecha186@gmail.com",
-      role: "mentor" as const,
-      goalId: "coding",
-      goalTitle: "Software Engineering & Mentorship",
-      level: "advanced" as const,
-      dailyTime: "60min",
-      preference: "mentorship" as const,
-      country: "India",
-      careerGoal: "Senior Tech Mentor",
-    };
-    localStorage.setItem("starfix:userRole", "mentor");
-    localStorage.setItem("userProfile", JSON.stringify(mentorProfile));
-    localStorage.setItem("loggedIn", "true");
-    window.dispatchEvent(new Event("starfix:auth-changed"));
-    toast.success("Welcome, Mentor", { description: "Entered Mentor Mode" });
-    onSuccess?.();
-    onClose();
-  }
-
   async function handleGoogle() {
     setError("");
     setMessage("");
@@ -153,9 +99,9 @@ export function SupabaseAuthModal({ mode, onClose, onSuccess, onSwitchMode }: Pr
     const googleReady = await isGoogleOAuthEnabled();
     if (!googleReady) {
       setLoading(false);
-      setError("Google Sign-In is not enabled yet in your Supabase project (Authentication > Providers > Google). Please log in with Email & Password or use 1-Click Demo Login below.");
+      setError("Google Sign-In is not enabled yet in your Supabase project (Authentication > Providers > Google). Please log in with Email & Password or use another sign-in method.");
       toast.error("Google OAuth not enabled in Supabase yet", {
-        description: "Please sign in with Email & Password, or click '1-Click Demo Student Access' below."
+        description: "Please sign in with Email & Password, or click 'another sign-in method' below."
       });
       return;
     }
@@ -168,26 +114,6 @@ export function SupabaseAuthModal({ mode, onClose, onSuccess, onSwitchMode }: Pr
       setError(authError.message);
       setLoading(false);
     }
-  }
-
-  function handleDemoLogin() {
-    const demoProfile = {
-      name: "Alex Sterling (Demo)",
-      email: "demo@starfix.vip",
-      goalId: "coding",
-      goalTitle: "Coding & Development",
-      level: "intermediate" as const,
-      dailyTime: "45min",
-      preference: "roadmap",
-      country: "United States",
-      learningLanguage: "en" as const,
-    };
-    localStorage.setItem("userProfile", JSON.stringify(demoProfile));
-    localStorage.setItem("loggedIn", "true");
-    window.dispatchEvent(new Event("starfix:auth-changed"));
-    toast.success("Signed in as Demo Student", { description: "Full platform access unlocked" });
-    onSuccess?.();
-    onClose();
   }
 
   return (
@@ -209,54 +135,6 @@ export function SupabaseAuthModal({ mode, onClose, onSuccess, onSwitchMode }: Pr
             <p style={{ color: "rgba(250,249,246,.46)", fontSize: 13, lineHeight: 1.6, margin: "8px 0 22px" }}>{isSignup ? "Your real Starfix account, synced across devices." : "Sign in to continue your journey."}</p>
 
             <button type="button" onClick={handleGoogle} disabled={loading} style={{ width: "100%", padding: "12px 14px", borderRadius: 12, border: "1px solid rgba(255,255,255,.12)", background: "rgba(255,255,255,.05)", color: INK, fontWeight: 600, cursor: loading ? "not-allowed" : "pointer", marginBottom: 10 }}>Continue with Google</button>
-
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 18 }}>
-              <button
-                type="button"
-                onClick={handleDemoLogin}
-                disabled={loading}
-                style={{
-                  padding: "11px 12px",
-                  borderRadius: 12,
-                  border: "1px solid rgba(212,175,55,.35)",
-                  background: "rgba(212,175,55,.08)",
-                  color: GOLD,
-                  fontWeight: 600,
-                  fontSize: 12,
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 6,
-                  fontFamily: "Inter, sans-serif",
-                }}
-              >
-                <Sparkles size={13} color={GOLD} /> Student Mode
-              </button>
-
-              <button
-                type="button"
-                onClick={handleMentorLogin}
-                disabled={loading}
-                style={{
-                  padding: "11px 12px",
-                  borderRadius: 12,
-                  border: "1px solid rgba(167,139,250,.4)",
-                  background: "rgba(167,139,250,.1)",
-                  color: "#C4B5FD",
-                  fontWeight: 600,
-                  fontSize: 12,
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 6,
-                  fontFamily: "Inter, sans-serif",
-                }}
-              >
-                <Sparkles size={13} color="#C4B5FD" /> Mentor Mode
-              </button>
-            </div>
 
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18, color: "rgba(250,249,246,.28)", fontSize: 11 }}><span style={{ flex: 1, height: 1, background: "rgba(255,255,255,.08)" }} /> OR <span style={{ flex: 1, height: 1, background: "rgba(255,255,255,.08)" }} /></div>
 
