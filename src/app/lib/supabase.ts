@@ -96,7 +96,6 @@ export async function upsertProfile(userId: string, patch: Partial<UserProfile>)
   if (patch.dailyTime !== undefined) payload.daily_time = patch.dailyTime;
   if (patch.preference !== undefined) payload.preference = patch.preference;
   if (patch.obstacle !== undefined) payload.obstacle = patch.obstacle;
-  if (patch.role !== undefined) payload.role = patch.role;
   if (patch.avatarDataUrl !== undefined) payload.avatar_url = patch.avatarDataUrl;
 
   const { error } = await supabase.from("profiles").upsert(payload, { onConflict: "id" });
@@ -130,10 +129,7 @@ export function toAuthProfile(user: { email?: string | null; user_metadata?: Rec
 export async function fetchUserRole(userId: string): Promise<UserProfile["role"]> {
   const { data, error } = await supabase.from("profiles").select("role").eq("id", userId).maybeSingle();
   if (!error && data?.role) return data.role as UserProfile["role"];
-  if (typeof window !== "undefined") {
-    const cachedRole = localStorage.getItem("starfix:userRole");
-    if (cachedRole === "mentor" || cachedRole === "admin") return cachedRole;
-  }
+  // Never authorize a role from localStorage. A failed role lookup is least-privilege.
   return "student";
 }
 
