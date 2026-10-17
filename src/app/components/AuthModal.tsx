@@ -108,7 +108,7 @@ export function AuthModal({
 
   const verifyEmailCode = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!/^\\d{6}$/.test(verificationCode)) { setError("Enter the 6-digit code from your email."); return; }
+    if (!/^\d{6}$/.test(verificationCode)) { setError("Enter the 6-digit code from your email."); return; }
     setLoading(true);
     setError("");
     try {
