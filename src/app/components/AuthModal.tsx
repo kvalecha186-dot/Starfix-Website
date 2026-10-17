@@ -89,7 +89,7 @@ export function AuthModal({
     try {
       const { error: otpError } = await supabase.auth.signInWithOtp({
         email: normalizedEmail,
-        options: { shouldCreateUser: false },
+        options: { shouldCreateUser: true },
       });
       if (otpError) throw otpError;
       setEmail(normalizedEmail);
