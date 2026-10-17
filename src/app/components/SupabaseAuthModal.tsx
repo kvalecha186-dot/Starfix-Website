@@ -7,9 +7,7 @@ import {
   X,
   KeyRound,
   Mail,
-  Phone,
   CheckCircle2,
-  RotateCw,
   ArrowLeft,
   ShieldCheck,
   Send,
@@ -20,7 +18,6 @@ import { recordUserLogin } from "../lib/loginAudit";
 export type SupabaseAuthMode =
   | "login"
   | "signup"
-  | "forgot_password"
   | "verify_otp"
   | "set_new_password"
   | "magic_code";
@@ -41,7 +38,6 @@ export function SupabaseAuthModal({ mode, onClose, onSuccess, onSwitchMode }: Pr
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [name, setName] = useState("");
-  const [phoneNumber, setPhoneNumber] = useState("");
   const [otpCode, setOtpCode] = useState("");
   const [recoveryMethod, setRecoveryMethod] = useState<"email" | "whatsapp">("email");
 
@@ -126,7 +122,7 @@ export function SupabaseAuthModal({ mode, onClose, onSuccess, onSwitchMode }: Pr
         if (authError) {
           if (authError.message.toLowerCase().includes("invalid login credentials")) {
             throw new Error(
-              "Invalid email or password. If you don't remember your password, click 'Forgot Password?' below to recover it."
+              "Invalid email or password. If you don't remember your password, use 'Forgot password?' to sign in with an email code."
             );
           }
           throw authError;
@@ -158,84 +154,7 @@ export function SupabaseAuthModal({ mode, onClose, onSuccess, onSwitchMode }: Pr
   }
 
   /* ═══════════════════════════════════════════════════════════════
-     2. FORGOT PASSWORD / SEND RECOVERY CODE & LINK
-  ═══════════════════════════════════════════════════════════════ */
-  async function handleSendRecovery(event: React.FormEvent) {
-    event.preventDefault();
-    setError("");
-    setMessage("");
-
-    if (recoveryMethod === "email") {
-      if (!email.includes("@")) {
-        setError("Please enter your registered email address.");
-        return;
-      }
-
-      setLoading(true);
-      try {
-        const redirectUrl = `${window.location.origin}/#type=recovery`;
-        const { error: resetErr } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-          redirectTo: redirectUrl,
-        });
-
-        if (resetErr) throw resetErr;
-
-        setMessage(
-          `Password reset link & 6-digit code sent to ${email.trim()}! Please check your Gmail/inbox (and spam folder).`
-        );
-        setResendTimer(60);
-
-        // Switch to OTP verification step
-        if (onSwitchMode) {
-          setTimeout(() => {
-            onSwitchMode("verify_otp");
-          }, 1400);
-        }
-      } catch (err: any) {
-        setError(err?.message || "Failed to send recovery email. Please check the address.");
-      } finally {
-        setLoading(false);
-      }
-    } else {
-      // WhatsApp / Phone Recovery
-      if (!phoneNumber.trim()) {
-        setError("Please enter your mobile phone number with country code (e.g. +91 9876543210).");
-        return;
-      }
-
-      setLoading(true);
-      try {
-        const cleanPhone = phoneNumber.replace(/[\s-]/g, "");
-        const { error: phoneErr } = await supabase.auth.signInWithOtp({
-          phone: cleanPhone,
-        });
-
-        if (phoneErr) {
-          const whatsappText = encodeURIComponent(
-            `Hello Starfix Support, I need password recovery for my account.\nEmail: ${email || "registered email"}\nPhone: ${cleanPhone}`
-          );
-          const whatsappUrl = `https://wa.me/919460000000?text=${whatsappText}`;
-          setMessage(
-            "Phone OTP provider pending. You can also connect via verified WhatsApp support or use Email OTP recovery."
-          );
-          window.open(whatsappUrl, "_blank");
-        } else {
-          setMessage(`Verification code sent via SMS/WhatsApp to ${cleanPhone}!`);
-          setResendTimer(60);
-          if (onSwitchMode) {
-            setTimeout(() => onSwitchMode("verify_otp"), 1200);
-          }
-        }
-      } catch (err: any) {
-        setError(err?.message || "Failed to trigger phone verification.");
-      } finally {
-        setLoading(false);
-      }
-    }
-  }
-
-  /* ═══════════════════════════════════════════════════════════════
-     3. VERIFY OTP (6-DIGIT CODE)
+     2. VERIFY OTP (6-DIGIT CODE)
   ═══════════════════════════════════════════════════════════════ */
   async function handleVerifyOtp(event: React.FormEvent) {
     event.preventDefault();
@@ -530,28 +449,12 @@ export function SupabaseAuthModal({ mode, onClose, onSuccess, onSwitchMode }: Pr
                     </button>
                   </div>
 
-                  {/* Forgot Password Link on Login Screen */}
+                  {/* Use the email-code sign-in flow when the user forgets their password. */}
                   {mode === "login" && (
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: -2 }}>
+                    <div style={{ display: "flex", justifyContent: "flex-end", marginTop: -2 }}>
                       <button
                         type="button"
                         onClick={() => onSwitchMode?.("magic_code")}
-                        style={{
-                          background: "rgba(212,175,55,.10)",
-                          border: "1px solid rgba(212,175,55,.28)",
-                          borderRadius: 8,
-                          color: GOLD,
-                          fontSize: 12,
-                          fontWeight: 600,
-                          cursor: "pointer",
-                          padding: "7px 9px",
-                        }}
-                      >
-                        Sign in with email code
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => onSwitchMode?.("forgot_password")}
                         style={{
                           background: "none",
                           border: 0,
@@ -726,204 +629,13 @@ export function SupabaseAuthModal({ mode, onClose, onSuccess, onSwitchMode }: Pr
             )}
 
             {/* ═══════════════════════════════════════════════════════════
-                VIEW: FORGOT PASSWORD
-            ═══════════════════════════════════════════════════════════ */}
-            {mode === "forgot_password" && (
-              <div>
-                <button
-                  type="button"
-                  onClick={() => onSwitchMode?.("login")}
-                  style={{
-                    background: "none",
-                    border: 0,
-                    color: "rgba(250,249,246,.5)",
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                    fontSize: 12,
-                    marginBottom: 12,
-                  }}
-                >
-                  <ArrowLeft size={14} /> Back to Sign In
-                </button>
-
-                <h2 style={{ fontFamily: "Playfair Display, serif", margin: "0 0 6px", fontSize: 24 }}>
-                  Recover Your Password
-                </h2>
-                <p style={{ color: "rgba(250,249,246,.5)", fontSize: 13, lineHeight: 1.5, margin: "0 0 18px" }}>
-                  Choose how you'd like to receive your recovery link and verification code:
-                </p>
-
-                {/* Tabs: Email vs WhatsApp/SMS */}
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr",
-                    gap: 8,
-                    background: "rgba(255,255,255,.04)",
-                    padding: 4,
-                    borderRadius: 12,
-                    marginBottom: 16,
-                  }}
-                >
-                  <button
-                    type="button"
-                    onClick={() => setRecoveryMethod("email")}
-                    style={{
-                      padding: "8px 12px",
-                      borderRadius: 9,
-                      border: 0,
-                      background: recoveryMethod === "email" ? "rgba(212,175,55,.18)" : "transparent",
-                      color: recoveryMethod === "email" ? GOLD : "rgba(250,249,246,.6)",
-                      fontWeight: 600,
-                      fontSize: 12.5,
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: 6,
-                    }}
-                  >
-                    <Mail size={14} /> Gmail / Email
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setRecoveryMethod("whatsapp")}
-                    style={{
-                      padding: "8px 12px",
-                      borderRadius: 9,
-                      border: 0,
-                      background: recoveryMethod === "whatsapp" ? "rgba(37,211,102,.18)" : "transparent",
-                      color: recoveryMethod === "whatsapp" ? "#4ADE80" : "rgba(250,249,246,.6)",
-                      fontWeight: 600,
-                      fontSize: 12.5,
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: 6,
-                    }}
-                  >
-                    <Phone size={14} /> WhatsApp / Phone
-                  </button>
-                </div>
-
-                <form onSubmit={handleSendRecovery} style={{ display: "grid", gap: 12 }}>
-                  {recoveryMethod === "email" ? (
-                    <div>
-                      <label style={{ display: "block", fontSize: 11.5, color: "rgba(250,249,246,.5)", marginBottom: 6 }}>
-                        Registered Gmail / Email Address
-                      </label>
-                      <input
-                        type="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        placeholder="you@gmail.com"
-                        style={fieldStyle}
-                        autoFocus
-                        required
-                      />
-                    </div>
-                  ) : (
-                    <div>
-                      <label style={{ display: "block", fontSize: 11.5, color: "rgba(250,249,246,.5)", marginBottom: 6 }}>
-                        Mobile Phone Number (with Country Code)
-                      </label>
-                      <input
-                        type="tel"
-                        value={phoneNumber}
-                        onChange={(e) => setPhoneNumber(e.target.value)}
-                        placeholder="+91 98765 43210"
-                        style={fieldStyle}
-                        autoFocus
-                        required
-                      />
-                    </div>
-                  )}
-
-                  {error && (
-                    <div
-                      style={{
-                        color: "#FCA5A5",
-                        background: "rgba(239,68,68,.12)",
-                        border: "1px solid rgba(239,68,68,.3)",
-                        padding: "9px 12px",
-                        borderRadius: 8,
-                        fontSize: 12,
-                        lineHeight: 1.5,
-                      }}
-                    >
-                      {error}
-                    </div>
-                  )}
-
-                  {message && (
-                    <div
-                      style={{
-                        color: "#86EFAC",
-                        background: "rgba(34,197,94,.12)",
-                        border: "1px solid rgba(34,197,94,.3)",
-                        padding: "9px 12px",
-                        borderRadius: 8,
-                        fontSize: 12,
-                        lineHeight: 1.5,
-                      }}
-                    >
-                      {message}
-                    </div>
-                  )}
-
-                  <button
-                    disabled={loading}
-                    type="submit"
-                    style={{
-                      display: "flex",
-                      justifyContent: "center",
-                      alignItems: "center",
-                      gap: 8,
-                      padding: "12px 16px",
-                      border: 0,
-                      borderRadius: 12,
-                      background: `linear-gradient(135deg, ${GOLD_LIGHT}, ${GOLD})`,
-                      color: INK,
-                      fontWeight: 700,
-                      fontSize: 14,
-                      cursor: loading ? "not-allowed" : "pointer",
-                      marginTop: 4,
-                    }}
-                  >
-                    {loading ? "Sending..." : "Send Verification Code"}
-                    <Send size={15} />
-                  </button>
-
-                  <div style={{ textAlign: "center", marginTop: 4 }}>
-                    <button
-                      type="button"
-                      onClick={() => onSwitchMode?.("verify_otp")}
-                      style={{
-                        background: "none",
-                        border: 0,
-                        color: "rgba(250,249,246,.45)",
-                        fontSize: 12,
-                        cursor: "pointer",
-                      }}
-                    >
-                      Already have a code? Enter it here →
-                    </button>
-                  </div>
-                </form>
-              </div>
-            )}
-
-            {/* ═══════════════════════════════════════════════════════════
                 VIEW: VERIFY OTP (6-DIGIT CODE)
             ═══════════════════════════════════════════════════════════ */}
             {mode === "verify_otp" && (
               <div>
                 <button
                   type="button"
-                  onClick={() => onSwitchMode?.("forgot_password")}
+                  onClick={() => onSwitchMode?.("magic_code")}
                   style={{
                     background: "none",
                     border: 0,
@@ -1028,7 +740,7 @@ export function SupabaseAuthModal({ mode, onClose, onSuccess, onSwitchMode }: Pr
                     <button
                       type="button"
                       disabled={resendTimer > 0 || loading}
-                      onClick={handleSendRecovery}
+                      onClick={(event) => handleSendMagicCode(event as any)}
                       style={{
                         background: "none",
                         border: 0,
