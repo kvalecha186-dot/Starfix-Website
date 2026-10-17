@@ -50,9 +50,19 @@ export function AuthModal({
   // before a session exists — there's nothing more this modal can do until
   // the learner clicks the link in their inbox.
   const [awaitingConfirm, setAwaitingConfirm] = useState(false);
+  const [codeMode, setCodeMode] = useState(false);
+  const [verificationCode, setVerificationCode] = useState("");
+  const [codeSeconds, setCodeSeconds] = useState(0);
+  const [codeRequests, setCodeRequests] = useState(0);
 
   /* Reset transient form state whenever the mode is switched */
-  useEffect(() => { setError(""); setLoading(false); setAwaitingConfirm(false); }, [mode]);
+  useEffect(() => { setError(""); setLoading(false); setAwaitingConfirm(false); setCodeMode(false); setVerificationCode(""); setCodeSeconds(0); setCodeRequests(0); }, [mode]);
+
+  useEffect(() => {
+    if (!codeMode || codeSeconds <= 0) return;
+    const timer = window.setTimeout(() => setCodeSeconds((seconds) => Math.max(0, seconds - 1)), 1000);
+    return () => window.clearTimeout(timer);
+  }, [codeMode, codeSeconds]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
@@ -67,6 +77,54 @@ export function AuthModal({
     if (/invalid login credentials/i.test(message)) return "That email or password doesn't match our records.";
     if (/password.*(least|characters)/i.test(message)) return message; // Supabase's own message is already clear here
     return message;
+  };
+
+  const requestEmailCode = async (isResend = false) => {
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail.includes("@")) { setError("Enter your registered email address first."); return; }
+    if (isResend && codeSeconds > 0) return;
+    if (codeRequests >= 3) { setError("You’ve reached the limit of 3 code requests. Please try again later."); return; }
+    setError("");
+    setLoading(true);
+    try {
+      const { error: otpError } = await supabase.auth.signInWithOtp({
+        email: normalizedEmail,
+        options: { shouldCreateUser: false },
+      });
+      if (otpError) throw otpError;
+      setEmail(normalizedEmail);
+      setCodeRequests((count) => count + 1);
+      setVerificationCode("");
+      setCodeSeconds(60);
+      setCodeMode(true);
+      setError("");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Could not send a verification code.";
+      setError(/rate limit/i.test(message) ? "Too many requests. Please wait before requesting another code." : message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const verifyEmailCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!/^\\d{6}$/.test(verificationCode)) { setError("Enter the 6-digit code from your email."); return; }
+    setLoading(true);
+    setError("");
+    try {
+      const { error: verifyError } = await supabase.auth.verifyOtp({
+        email: email.trim().toLowerCase(),
+        token: verificationCode,
+        type: "email",
+      });
+      if (verifyError) throw verifyError;
+      onSuccess();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "That code could not be verified.";
+      setError(/expired|invalid/i.test(message) ? "That code is invalid or expired. Request a new code and try again." : message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -178,7 +236,41 @@ export function AuthModal({
           </p>
         </div>
 
-        {awaitingConfirm ? (
+        {codeMode ? (
+          <div style={{ position: "relative" }}>
+            <button type="button" onClick={() => { setCodeMode(false); setVerificationCode(""); setError(""); }} style={{ background: "none", border: "none", padding: 0, marginBottom: 18, color: "rgba(250,249,246,0.55)", cursor: "pointer", fontFamily: "'Inter', sans-serif", fontSize: "0.82rem" }}>
+              ← Back
+            </button>
+            <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: "1.65rem", fontWeight: 700, color: INK, margin: "0 0 6px" }}>Enter Verification Code</h2>
+            <p style={{ fontSize: "0.82rem", color: "rgba(250,249,246,0.5)", margin: "0 0 22px", lineHeight: 1.6 }}>
+              Enter the 6-digit code sent to <span style={{ color: GOLD, fontWeight: 700 }}>{email}</span>.
+            </p>
+            <form onSubmit={verifyEmailCode} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <input
+                aria-label="6-digit verification code"
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                maxLength={6}
+                value={verificationCode}
+                onChange={(e) => { setVerificationCode(e.target.value.replace(/\\D/g, "").slice(0, 6)); setError(""); }}
+                placeholder="123456"
+                style={{ ...inputStyle(verificationCode.length > 0), textAlign: "center", letterSpacing: "0.45em", fontSize: "1.25rem", fontWeight: 700, padding: "16px 14px" }}
+              />
+              {error && <p style={{ fontSize: "0.75rem", color: "#F87171", margin: 0, lineHeight: 1.5 }}>{error}</p>}
+              <motion.button type="submit" disabled={loading || verificationCode.length !== 6} whileTap={{ scale: 0.98 }} style={{ background: `linear-gradient(135deg, ${GOLD_LIGHT} 0%, ${GOLD} 100%)`, color: "#0A0912", border: "none", borderRadius: 999, padding: "13px 24px", fontSize: "0.9rem", fontWeight: 700, cursor: loading || verificationCode.length !== 6 ? "not-allowed" : "pointer", opacity: loading || verificationCode.length !== 6 ? 0.65 : 1 }}>
+                {loading ? "Verifying…" : "Verify Code & Sign In"}
+              </motion.button>
+            </form>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginTop: 22, fontSize: "0.78rem", color: "rgba(250,249,246,0.48)" }}>
+              <span>{codeSeconds > 0 ? `Code expires in 0:${String(codeSeconds).padStart(2, "0")}` : "Code may have expired"}</span>
+              <button type="button" disabled={loading || codeSeconds > 0 || codeRequests >= 3} onClick={() => requestEmailCode(true)} style={{ background: "none", border: "none", padding: 0, color: codeSeconds > 0 || codeRequests >= 3 ? "rgba(250,249,246,0.25)" : GOLD, cursor: loading || codeSeconds > 0 || codeRequests >= 3 ? "not-allowed" : "pointer", fontWeight: 600 }}>
+                {codeRequests >= 3 ? "Request limit reached" : codeSeconds > 0 ? `Resend in 0:${String(codeSeconds).padStart(2, "0")}` : "Resend code"}
+              </button>
+            </div>
+            <p style={{ fontSize: "0.7rem", color: "rgba(250,249,246,0.28)", marginTop: 12 }}>Requests allowed in this sign-in attempt: {codeRequests}/3</p>
+          </div>
+        ) : awaitingConfirm ? (
           /* Signup succeeded but Supabase requires email confirmation
              before a session exists — nothing more to do here except
              tell the learner clearly, instead of leaving the modal
@@ -269,7 +361,7 @@ export function AuthModal({
             <div style={{ display: "flex", justifyContent: "flex-end", marginTop: -4 }}>
               <button
                 type="button"
-                onClick={() => setError("")}
+                onClick={() => requestEmailCode(false)}
                 style={{
                   background: "none", border: "none", cursor: "pointer",
                   color: "rgba(250,249,246,0.36)", fontSize: "0.73rem",
@@ -278,7 +370,7 @@ export function AuthModal({
                 onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = GOLD_LIGHT; }}
                 onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "rgba(250,249,246,0.36)"; }}
               >
-                Forgot password?
+                Sign in with email code
               </button>
             </div>
           )}
