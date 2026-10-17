@@ -5,7 +5,6 @@ import {
   Eye,
   EyeOff,
   X,
-  KeyRound,
   Mail,
   CheckCircle2,
   ArrowLeft,
@@ -883,106 +882,6 @@ export function SupabaseAuthModal({ mode, onClose, onSuccess, onSwitchMode }: Pr
                   >
                     {loading ? "Updating…" : "Update Password & Sign In"}
                     <CheckCircle2 size={16} />
-                  </button>
-                </form>
-              </div>
-            )}
-
-            {/* ═══════════════════════════════════════════════════════════
-                VIEW: MAGIC CODE (PASSWORDLESS OTP)
-            ═══════════════════════════════════════════════════════════ */}
-            {mode === "magic_code" && (
-              <div>
-                <button
-                  type="button"
-                  onClick={() => onSwitchMode?.("login")}
-                  style={{
-                    background: "none",
-                    border: 0,
-                    color: "rgba(250,249,246,.5)",
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                    fontSize: 12,
-                    marginBottom: 12,
-                  }}
-                >
-                  <ArrowLeft size={14} /> Back to Password Sign In
-                </button>
-
-                <h2 style={{ fontFamily: "Playfair Display, serif", margin: "0 0 6px", fontSize: 24 }}>
-                  Sign in with 1-Click Code
-                </h2>
-                <p style={{ color: "rgba(250,249,246,.5)", fontSize: 13, lineHeight: 1.5, margin: "0 0 18px" }}>
-                  Don't know your password? Enter your email and we'll send a 6-digit verification code directly to your
-                  inbox.
-                </p>
-
-                <form onSubmit={handleSendMagicCode} style={{ display: "grid", gap: 12 }}>
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="you@gmail.com"
-                    style={fieldStyle}
-                    autoFocus
-                    required
-                  />
-
-                  {error && (
-                    <div
-                      style={{
-                        color: "#FCA5A5",
-                        background: "rgba(239,68,68,.12)",
-                        border: "1px solid rgba(239,68,68,.3)",
-                        padding: "9px 12px",
-                        borderRadius: 8,
-                        fontSize: 12,
-                        lineHeight: 1.5,
-                      }}
-                    >
-                      {error}
-                    </div>
-                  )}
-
-                  {message && (
-                    <div
-                      style={{
-                        color: "#86EFAC",
-                        background: "rgba(34,197,94,.12)",
-                        border: "1px solid rgba(34,197,94,.3)",
-                        padding: "9px 12px",
-                        borderRadius: 8,
-                        fontSize: 12,
-                        lineHeight: 1.5,
-                      }}
-                    >
-                      {message}
-                    </div>
-                  )}
-
-                  <button
-                    disabled={loading}
-                    type="submit"
-                    style={{
-                      display: "flex",
-                      justifyContent: "center",
-                      alignItems: "center",
-                      gap: 8,
-                      padding: "12px 16px",
-                      border: 0,
-                      borderRadius: 12,
-                      background: `linear-gradient(135deg, ${GOLD_LIGHT}, ${GOLD})`,
-                      color: INK,
-                      fontWeight: 700,
-                      fontSize: 14,
-                      cursor: loading ? "not-allowed" : "pointer",
-                      marginTop: 4,
-                    }}
-                  >
-                    {loading ? "Sending code…" : "Send 6-Digit Code to Gmail"}
-                    <KeyRound size={16} />
                   </button>
                 </form>
               </div>
