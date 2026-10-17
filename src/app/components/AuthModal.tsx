@@ -131,6 +131,7 @@ export function AuthModal({
     e.preventDefault();
     if (isSignup && name.trim().length < 2) { setError("Please enter your full name."); return; }
     if (!email.includes("@")) { setError("Please enter a valid email."); return; }
+    if (!isSignup) { await requestEmailCode(false); return; }
     if (password.length < 1)  { setError("Please enter a password."); return; }
     setError("");
     setLoading(true);
@@ -331,7 +332,7 @@ export function AuthModal({
             />
           </div>
 
-          <div>
+          {isSignup && <div>
             <label style={fieldLabelStyle()}>Password</label>
             <div style={{ position: "relative" }}>
               <input
@@ -355,25 +356,7 @@ export function AuthModal({
                 {showPw ? <EyeOff size={15} /> : <Eye size={15} />}
               </button>
             </div>
-          </div>
-
-          {!isSignup && (
-            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: -4 }}>
-              <button
-                type="button"
-                onClick={() => requestEmailCode(false)}
-                style={{
-                  background: "none", border: "none", cursor: "pointer",
-                  color: "rgba(250,249,246,0.36)", fontSize: "0.73rem",
-                  fontFamily: "'Inter', sans-serif", transition: "color 0.2s",
-                }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = GOLD_LIGHT; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "rgba(250,249,246,0.36)"; }}
-              >
-                Sign in with email code
-              </button>
-            </div>
-          )}
+          </div>}
 
           {error && (
             <p style={{ fontSize: "0.75rem", color: "#F87171", margin: 0, lineHeight: 1.5 }}>{error}</p>
@@ -399,7 +382,7 @@ export function AuthModal({
           >
             {loading
               ? (isSignup ? "Creating your account…" : "Signing in…")
-              : <><span>{isSignup ? "Create my account" : "Continue"}</span><ArrowRight size={15} /></>}
+              : <><span>{isSignup ? "Create my account" : "Send 6-digit code"}</span><ArrowRight size={15} /></>}
           </motion.button>
         </form>
 
