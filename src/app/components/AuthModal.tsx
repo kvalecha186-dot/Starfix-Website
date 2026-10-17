@@ -253,7 +253,7 @@ export function AuthModal({
                 autoComplete="one-time-code"
                 maxLength={6}
                 value={verificationCode}
-                onChange={(e) => { setVerificationCode(e.target.value.replace(/\\D/g, "").slice(0, 6)); setError(""); }}
+                onChange={(e) => { setVerificationCode(e.target.value.replace(/\D/g, "").slice(0, 6)); setError(""); }}
                 placeholder="123456"
                 style={{ ...inputStyle(verificationCode.length > 0), textAlign: "center", letterSpacing: "0.45em", fontSize: "1.25rem", fontWeight: 700, padding: "16px 14px" }}
               />
