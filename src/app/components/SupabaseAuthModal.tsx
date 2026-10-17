@@ -537,15 +537,17 @@ export function SupabaseAuthModal({ mode, onClose, onSuccess, onSwitchMode }: Pr
                         type="button"
                         onClick={() => onSwitchMode?.("magic_code")}
                         style={{
-                          background: "none",
-                          border: 0,
-                          color: "rgba(250,249,246,.5)",
+                          background: "rgba(212,175,55,.10)",
+                          border: "1px solid rgba(212,175,55,.28)",
+                          borderRadius: 8,
+                          color: GOLD,
                           fontSize: 12,
+                          fontWeight: 600,
                           cursor: "pointer",
-                          padding: 0,
+                          padding: "7px 9px",
                         }}
                       >
-                        Sign in without password
+                        Sign in with email code
                       </button>
                       <button
                         type="button"
@@ -639,6 +641,88 @@ export function SupabaseAuthModal({ mode, onClose, onSuccess, onSwitchMode }: Pr
                   </button>
                 </div>
               </>
+            )}
+
+            {/* ═══════════════════════════════════════════════════════════
+                VIEW: PASSWORDLESS EMAIL CODE SIGN-IN
+            ═══════════════════════════════════════════════════════════ */}
+            {mode === "magic_code" && (
+              <div>
+                <button
+                  type="button"
+                  onClick={() => onSwitchMode?.("login")}
+                  style={{
+                    background: "none",
+                    border: 0,
+                    color: "rgba(250,249,246,.5)",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    fontSize: 12,
+                    marginBottom: 12,
+                  }}
+                >
+                  <ArrowLeft size={14} /> Back to Sign In
+                </button>
+
+                <h2 style={{ fontFamily: "Playfair Display, serif", margin: "0 0 6px", fontSize: 24 }}>
+                  Sign in with email code
+                </h2>
+                <p style={{ color: "rgba(250,249,246,.5)", fontSize: 13, lineHeight: 1.5, margin: "0 0 18px" }}>
+                  We'll email you a one-time 6-digit code. No password needed.
+                </p>
+
+                <form onSubmit={handleSendMagicCode} style={{ display: "grid", gap: 13 }}>
+                  <label style={{ display: "grid", gap: 6, color: "rgba(250,249,246,.65)", fontSize: 12 }}>
+                    Email address
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="you@gmail.com"
+                      style={fieldStyle}
+                      autoComplete="email"
+                      autoFocus
+                      required
+                    />
+                  </label>
+
+                  {error && (
+                    <div style={{ color: "#FCA5A5", background: "rgba(239,68,68,.12)", border: "1px solid rgba(239,68,68,.3)", padding: "9px 12px", borderRadius: 8, fontSize: 12, lineHeight: 1.5 }}>
+                      {error}
+                    </div>
+                  )}
+                  {message && (
+                    <div style={{ color: "#86EFAC", background: "rgba(34,197,94,.12)", border: "1px solid rgba(34,197,94,.3)", padding: "9px 12px", borderRadius: 8, fontSize: 12, lineHeight: 1.5 }}>
+                      {message}
+                    </div>
+                  )}
+
+                  <button
+                    disabled={loading}
+                    type="submit"
+                    style={{
+                      display: "flex",
+                      justifyContent: "center",
+                      alignItems: "center",
+                      gap: 8,
+                      padding: "12px 16px",
+                      border: 0,
+                      borderRadius: 12,
+                      background: `linear-gradient(135deg, ${GOLD_LIGHT}, ${GOLD})`,
+                      color: INK,
+                      fontWeight: 700,
+                      fontSize: 14,
+                      cursor: loading ? "not-allowed" : "pointer",
+                      marginTop: 4,
+                    }}
+                  >
+                    {loading ? "Sending code…" : "Send 6-digit code"}
+                    <Send size={15} />
+                  </button>
+                </form>
+              </div>
             )}
 
             {/* ═══════════════════════════════════════════════════════════
@@ -869,9 +953,11 @@ export function SupabaseAuthModal({ mode, onClose, onSuccess, onSwitchMode }: Pr
                 <form onSubmit={handleVerifyOtp} style={{ display: "grid", gap: 14 }}>
                   <input
                     type="text"
-                    maxLength={8}
+                    maxLength={6}
                     value={otpCode}
-                    onChange={(e) => setOtpCode(e.target.value.trim())}
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    onChange={(e) => setOtpCode(e.target.value.replace(/\\D/g, "").slice(0, 6))}
                     placeholder="123456"
                     style={{
                       ...fieldStyle,
