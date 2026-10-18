@@ -188,7 +188,8 @@ export function MentorsPage({ onNavigate, userProfile, categoryOverride, onSelec
                 cursor: "pointer",
                 border: `1px solid ${filters.includes(key) ? C.gold : C.border}`,
                 background: filters.includes(key) ? C.goldLight : "transparent",
-                color: filters.includes(key) ? "#7A6010" : C.textMuted,
+                color: filters.includes(key) ? C.gold : C.textMuted,
+                fontWeight: filters.includes(key) ? 600 : 400,
                 transition: "all 0.15s",
                 fontFamily: "'Inter', sans-serif",
               }}

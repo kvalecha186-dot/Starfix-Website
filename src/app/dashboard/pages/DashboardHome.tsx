@@ -111,12 +111,12 @@ function MentorSessionCard({ enrollment, onNavigate }: { enrollment: Enrollment 
 
   if (!enrollment) {
     return (
-      <SectionCard style={{ padding: "22px 26px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-          <div style={{ width: 44, height: 44, borderRadius: "50%", background: C.surfaceAlt, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+      <SectionCard style={{ padding: "18px 20px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+          <div style={{ width: 42, height: 42, borderRadius: "50%", background: C.surfaceAlt, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
             <Clock size={18} color={C.textFaint} />
           </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ flex: "1 1 200px", minWidth: 0 }}>
             <div style={{ fontSize: "0.92rem", fontWeight: 600, color: C.text }}>No mentor session scheduled</div>
             <div style={{ fontSize: "0.78rem", color: C.textMuted, marginTop: 2 }}>Choose a mentor for one of your Growth Paths to book your first session.</div>
           </div>
@@ -124,9 +124,9 @@ function MentorSessionCard({ enrollment, onNavigate }: { enrollment: Enrollment 
             whileHover={{ y: -2, opacity: 0.92 }}
             onClick={() => onNavigate?.("goals")}
             style={{
-              display: "flex", alignItems: "center", gap: 7, background: C.gold, color: "#fff",
+              display: "inline-flex", alignItems: "center", gap: 7, background: C.gold, color: "#fff",
               border: "none", borderRadius: 12, padding: "10px 18px", fontSize: "0.8rem", fontWeight: 600,
-              cursor: "pointer", fontFamily: "'Inter', sans-serif", flexShrink: 0, whiteSpace: "nowrap",
+              cursor: "pointer", fontFamily: "'Inter', sans-serif", flexShrink: 0,
             }}
           >
             Choose a mentor
@@ -433,6 +433,11 @@ export function DashboardHome({ onNavigate, userProfile }: { onNavigate?: (p: Da
           nothing reads as a shape, just diffused warmth behind the
           greeting / active-journey / mission areas. Purely decorative:
           aria-hidden, no pointer events, sits behind all real content. ══ */}
+      {/* Desktop-only: a 1400px blur over ~140% of the screen is invisible
+          decoration at 3–6% opacity, but on a phone GPU it's what froze the
+          page. Phones/tablets skip the layer entirely (the page's own subtle
+          radial background below still gives them the same warm tone). */}
+      {isDesktop && (
       <div aria-hidden style={{ position: "absolute", inset: 0, overflow: "hidden", pointerEvents: "none", zIndex: 0 }}>
         <div style={{ position: "absolute", inset: "-20%", filter: "blur(1400px)" }}>
           {/* top-right — behind the greeting */}
@@ -452,6 +457,7 @@ export function DashboardHome({ onNavigate, userProfile }: { onNavigate?: (p: Da
           }} />
         </div>
       </div>
+      )}
 
       <div style={{ position: "relative", zIndex: 1 }}>
 
@@ -809,22 +815,22 @@ export function DashboardHome({ onNavigate, userProfile }: { onNavigate?: (p: Da
 
         {/* ══ WEEKLY CHALLENGE ═══════════════════════════════════ */}
         <SectionCard style={{ padding: isDesktop ? "26px 30px" : "18px 18px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
             <div style={{
-              width: 56, height: 56, borderRadius: "50%", flexShrink: 0, position: "relative",
+              width: 52, height: 52, borderRadius: "50%", flexShrink: 0, position: "relative",
               background: `conic-gradient(${C.gold} ${60 * 3.6}deg, ${C.borderMuted} 0deg)`,
               display: "flex", alignItems: "center", justifyContent: "center",
             }}>
               <div style={{
-                width: 44, height: 44, borderRadius: "50%", background: C.surface,
+                width: 40, height: 40, borderRadius: "50%", background: C.surface,
                 display: "flex", alignItems: "center", justifyContent: "center",
                 fontSize: "0.74rem", fontWeight: 700, color: C.gold,
               }}>
                 3/5
               </div>
             </div>
-            <div style={{ flex: 1, minWidth: 220 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
+            <div style={{ flex: "1 1 180px", minWidth: 0 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4, flexWrap: "wrap" }}>
                 <span style={{ fontSize: "0.95rem", fontWeight: 700, color: C.text }}>Weekly Challenge</span>
                 <span style={{ fontSize: "0.72rem", color: C.textFaint }}>Ends in 3 days</span>
               </div>
@@ -832,7 +838,7 @@ export function DashboardHome({ onNavigate, userProfile }: { onNavigate?: (p: Da
                 Ship a small project and share it with your mentor
               </div>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 16, flexShrink: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0, flexWrap: "wrap", width: isDesktop ? "auto" : "100%", justifyContent: isDesktop ? "flex-end" : "space-between" }}>
               <span style={{
                 fontSize: "0.72rem", fontWeight: 700, color: C.gold, background: C.goldLight,
                 border: `1px solid ${C.goldBorder}`, padding: "5px 12px", borderRadius: 999,
@@ -844,7 +850,7 @@ export function DashboardHome({ onNavigate, userProfile }: { onNavigate?: (p: Da
                 style={{
                   background: C.gold, color: "#fff", border: "none", borderRadius: 12,
                   padding: "10px 18px", fontSize: "0.8rem", fontWeight: 600, cursor: "pointer",
-                  fontFamily: "'Inter', sans-serif", transition: "transform 180ms ease", whiteSpace: "nowrap",
+                  fontFamily: "'Inter', sans-serif", transition: "transform 180ms ease",
                 }}
               >
                 Continue challenge
@@ -856,18 +862,18 @@ export function DashboardHome({ onNavigate, userProfile }: { onNavigate?: (p: Da
         {/* ══ UNLOCK SECTION ═════════════════════════════════════ */}
         <SectionCard style={{ padding: isDesktop ? "22px 26px" : "16px 18px" }}>
           <div style={{ ...LABEL, marginBottom: 14 }}>You're close to unlocking</div>
-          <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
             <div style={{
-              width: 42, height: 42, borderRadius: 12, background: C.goldLight, flexShrink: 0,
+              width: 40, height: 40, borderRadius: 12, background: C.goldLight, flexShrink: 0,
               border: `1px solid ${C.goldBorder}`, display: "flex", alignItems: "center", justifyContent: "center",
             }}>
               <Lock size={17} color={C.gold} />
             </div>
-            <div style={{ flex: 1, minWidth: 200 }}>
+            <div style={{ flex: "1 1 150px", minWidth: 0 }}>
               <div style={{ fontSize: "0.88rem", fontWeight: 600, color: C.text, marginBottom: 2 }}>Consistency Badge</div>
               <div style={{ fontSize: "0.78rem", color: C.textMuted }}>Complete tasks for 2 more days</div>
             </div>
-            <div style={{ flex: 1, minWidth: 160, maxWidth: 220 }}>
+            <div style={{ flex: "1 1 120px", minWidth: 100, maxWidth: isDesktop ? 220 : "100%" }}>
               <div style={{ height: 5, borderRadius: 5, background: C.borderMuted, overflow: "hidden" }}>
                 <motion.div
                   initial={{ width: 0 }} animate={{ width: "80%" }}

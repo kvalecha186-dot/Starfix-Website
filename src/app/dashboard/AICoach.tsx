@@ -121,14 +121,14 @@ export function AICoach({
         whileTap={{ scale: 0.96 }}
         style={{
           position: "fixed",
-          bottom: mobile ? 18 : 26,
-          right: mobile ? 18 : 26,
+          bottom: mobile ? "calc(72px + env(safe-area-inset-bottom, 0px))" : 26,
+          right: mobile ? 14 : 26,
           width: size,
           height: size,
           borderRadius: "50%",
-          background: "#fff",
-          border: `1px solid ${C.goldBorder}`,
-          boxShadow: `0 2px 12px rgba(201,162,39,0.16)`,
+          background: C.surface,
+          border: `1.5px solid ${C.gold}`,
+          boxShadow: `0 4px 20px rgba(212,175,55,0.25)`,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -146,7 +146,7 @@ export function AICoach({
             transition={{ duration: 0.15 }}
             style={{ display: "flex" }}
           >
-            {open ? <X size={20} color={C.gold} strokeWidth={1.8} /> : <Sparkles size={20} color={C.gold} strokeWidth={1.8} />}
+            {open ? <X size={20} color={C.gold} strokeWidth={2} /> : <Sparkles size={20} color={C.gold} strokeWidth={2} />}
           </motion.span>
         </AnimatePresence>
       </motion.button>
@@ -161,15 +161,15 @@ export function AICoach({
             transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
             style={{
               position: "fixed",
-              bottom: mobile ? 82 : 96,
+              bottom: mobile ? "calc(128px + env(safe-area-inset-bottom, 0px))" : 96,
               right: mobile ? 14 : 26,
               width: mobile ? "calc(100vw - 28px)" : 360,
-              height: 560,
-              maxHeight: "calc(100vh - 120px)",
-              background: "#fff",
+              height: 540,
+              maxHeight: "calc(100dvh - 160px)",
+              background: C.surface,
               border: `1px solid ${C.goldBorder}`,
               borderRadius: 24,
-              boxShadow: "0 16px 48px rgba(0,0,0,0.12)",
+              boxShadow: "0 20px 60px rgba(0,0,0,0.65)",
               display: "flex",
               flexDirection: "column",
               overflow: "hidden",
@@ -336,7 +336,7 @@ function Bubble({
                 key={c}
                 onClick={() => onSend(c)}
                 style={{
-                  fontSize: "0.74rem", color: C.text, background: "#fff",
+                  fontSize: "0.74rem", color: C.text, background: C.surfaceAlt,
                   border: `1px solid ${C.border}`, borderRadius: 999, padding: "6px 12px",
                   cursor: "pointer", fontFamily: "'Inter', sans-serif",
                 }}

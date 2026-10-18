@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
-import { motion } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
+import { Menu, X } from "lucide-react";
 import { StarfixLogo } from "./StarfixLogo";
 
 const GOLD = "#D4AF37";
@@ -31,6 +32,7 @@ export function Navbar({
   const [activeId,  setActiveId]  = useState("");
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [loginHover, setLoginHover] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     const fn = () => setScrolled(window.scrollY > 48);
@@ -127,7 +129,7 @@ export function Navbar({
         </div>
 
         {/* Right — auth actions */}
-        <div className="flex items-center gap-3 flex-shrink-0">
+        <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
           {loggedIn ? (
             <>
               {/* Avatar */}
@@ -151,8 +153,8 @@ export function Navbar({
                 whileHover={{ y: -2 }}
                 whileTap={{ scale: 0.96 }}
                 style={{
-                  height: 42, display: "flex", alignItems: "center",
-                  padding: "0 18px", borderRadius: 999,
+                  height: 38, display: "flex", alignItems: "center",
+                  padding: "0 16px", borderRadius: 999,
                   background: "transparent",
                   border: `1px solid ${GOLD}`,
                   color: GOLD_LIGHT,
@@ -161,8 +163,6 @@ export function Navbar({
                   cursor: "pointer",
                   transition: "box-shadow 200ms ease, background 200ms ease",
                 }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 0 16px rgba(212,175,55,0.28)"; (e.currentTarget as HTMLButtonElement).style.background = "rgba(212,175,55,0.06)"; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.boxShadow = "none"; (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
               >
                 Profile
               </motion.button>
@@ -175,15 +175,13 @@ export function Navbar({
                 onMouseEnter={() => setLoginHover(true)}
                 onMouseLeave={() => setLoginHover(false)}
                 style={{
-                  height: 42, display: "flex", alignItems: "center",
-                  padding: "0 14px", borderRadius: 999,
+                  height: 38, display: "flex", alignItems: "center",
+                  padding: "0 12px", borderRadius: 999,
                   background: "transparent", border: "none",
-                  color: loginHover ? INK : "rgba(250,249,246,0.62)",
-                  textShadow: loginHover ? "0 0 14px rgba(250,249,246,0.35)" : "none",
+                  color: loginHover ? INK : "rgba(250,249,246,0.72)",
                   fontFamily: "'Inter', sans-serif",
-                  fontSize: "0.83rem", fontWeight: 500,
+                  fontSize: "0.82rem", fontWeight: 500,
                   cursor: "pointer",
-                  transition: "color 200ms ease, text-shadow 200ms ease",
                 }}
               >
                 Log in
@@ -195,25 +193,80 @@ export function Navbar({
                 whileHover={{ y: -2 }}
                 whileTap={{ scale: 0.97 }}
                 style={{
-                  height: 42, display: "flex", alignItems: "center",
-                  padding: "0 22px", borderRadius: 999, border: "none",
+                  height: 38, display: "flex", alignItems: "center",
+                  padding: "0 16px", borderRadius: 999, border: "none",
                   background: `linear-gradient(135deg, ${GOLD_LIGHT} 0%, ${GOLD} 100%)`,
                   color: "#0A0912",
                   fontFamily: "'Inter', sans-serif",
-                  fontSize: "0.83rem", fontWeight: 700,
+                  fontSize: "0.82rem", fontWeight: 700,
                   cursor: "pointer",
-                  boxShadow: "0 0 18px rgba(212,175,55,0.28)",
-                  transition: "box-shadow 200ms ease",
+                  boxShadow: "0 0 16px rgba(212,175,55,0.25)",
                 }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 0 28px rgba(212,175,55,0.48)"; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 0 18px rgba(212,175,55,0.28)"; }}
               >
                 Get Started
               </motion.button>
             </>
           )}
+
+          {/* Mobile hamburger menu button */}
+          <button
+            onClick={() => setMobileMenuOpen((o) => !o)}
+            className="flex md:hidden items-center justify-center"
+            aria-label="Toggle navigation menu"
+            style={{
+              width: 36, height: 36, borderRadius: 10,
+              border: "1px solid rgba(255,255,255,0.12)",
+              background: mobileMenuOpen ? "rgba(255,255,255,0.08)" : "transparent",
+              color: "#FAF9F6", cursor: "pointer", marginLeft: 4,
+            }}
+          >
+            {mobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
+          </button>
         </div>
       </div>
+
+      {/* Mobile navigation dropdown */}
+      <AnimatePresence>
+        {mobileMenuOpen && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.22, ease: "easeInOut" }}
+            className="md:hidden"
+            style={{
+              background: "rgba(10, 10, 16, 0.98)",
+              backdropFilter: "blur(20px)",
+              WebkitBackdropFilter: "blur(20px)",
+              borderBottom: "1px solid rgba(255,255,255,0.08)",
+              overflow: "hidden",
+            }}
+          >
+            <div style={{ padding: "16px 24px 24px", display: "flex", flexDirection: "column", gap: 12 }}>
+              {NAV_LINKS.map((link) => (
+                <a
+                  key={link.sectionId}
+                  href={link.href}
+                  onClick={(e) => {
+                    scrollTo(e, link.href);
+                    setMobileMenuOpen(false);
+                  }}
+                  style={{
+                    fontFamily: "'Inter', sans-serif",
+                    fontSize: "0.92rem",
+                    color: activeId === link.sectionId ? GOLD_LIGHT : "rgba(250,249,246,0.75)",
+                    textDecoration: "none",
+                    padding: "8px 0",
+                    fontWeight: activeId === link.sectionId ? 600 : 400,
+                  }}
+                >
+                  {link.label}
+                </a>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.nav>
   );
 }

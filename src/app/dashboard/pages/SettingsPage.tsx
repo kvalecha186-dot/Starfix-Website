@@ -140,9 +140,11 @@ function useViewportWidth(): number {
 }
 
 function SectionCard({ title, icon: Icon, children }: { title: string; icon: React.ComponentType<{ size?: number; color?: string }>; children: React.ReactNode }) {
+  const vw = useViewportWidth();
+  const pad = vw < 768 ? "20px 16px" : 32;
   return (
-    <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 18, boxShadow: C.shadow, padding: 32, boxSizing: "border-box", overflow: "visible", width: "100%" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 22 }}>
+    <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 18, boxShadow: C.shadow, padding: pad, boxSizing: "border-box", overflow: "visible", width: "100%" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 20 }}>
         <Icon size={15} color={C.gold} />
         <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: "1.05rem", fontWeight: 700, color: C.text, margin: 0 }}>{title}</h2>
       </div>
@@ -182,13 +184,26 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
 }
 
 function Row({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+  const vw = useViewportWidth();
+  const isMobile = vw < 768;
   return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, width: "100%", boxSizing: "border-box" }}>
-      <div style={{ minWidth: 0, flex: 1 }}>
+    <div style={{
+      display: "flex",
+      flexDirection: isMobile ? "column" : "row",
+      alignItems: isMobile ? "flex-start" : "center",
+      justifyContent: "space-between",
+      gap: isMobile ? 8 : 16,
+      width: "100%",
+      boxSizing: "border-box",
+      paddingBottom: isMobile ? 4 : 0,
+    }}>
+      <div style={{ minWidth: 0, flex: 1, width: isMobile ? "100%" : undefined }}>
         <div style={{ fontSize: "0.86rem", fontWeight: 500, color: C.text }}>{label}</div>
         {hint && <div style={{ fontSize: "0.74rem", color: C.textFaint, marginTop: 2 }}>{hint}</div>}
       </div>
-      <div style={{ flexShrink: 0, display: "flex", alignItems: "center" }}>{children}</div>
+      <div style={{ flexShrink: 0, display: "flex", alignItems: "center", width: isMobile ? "100%" : undefined, justifyContent: isMobile ? "flex-start" : "flex-end" }}>
+        {children}
+      </div>
     </div>
   );
 }
@@ -278,10 +293,12 @@ function Select({ value, options, onChange, fullWidth }: { value: string; option
 function CountrySelect({ value, onChange, isMobile }: { value: string; onChange: (v: string) => void; isMobile?: boolean }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
+  const vw = useViewportWidth();
+  const mobile = isMobile ?? (vw < 768);
   const selected = COUNTRY_OPTIONS.find((c) => c.name === value) ?? COUNTRY_OPTIONS[0];
 
   useEffect(() => {
-    if (!open || isMobile) return;
+    if (!open || mobile) return;
     const onDocClick = (e: MouseEvent) => {
       if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
     };
@@ -292,7 +309,7 @@ function CountrySelect({ value, onChange, isMobile }: { value: string; onChange:
       document.removeEventListener("mousedown", onDocClick);
       document.removeEventListener("keydown", onEsc);
     };
-  }, [open, isMobile]);
+  }, [open, mobile]);
 
   const optionRow = (c: { name: string; code: string }, isSelected: boolean) => (
     <button
@@ -338,7 +355,7 @@ function CountrySelect({ value, onChange, isMobile }: { value: string; onChange:
       </button>
 
       {/* Desktop/tablet — floating dropdown, unchanged. */}
-      {!isMobile && (
+      {!mobile && (
         <AnimatePresence>
           {open && (
             <motion.div
@@ -360,7 +377,7 @@ function CountrySelect({ value, onChange, isMobile }: { value: string; onChange:
       )}
 
       {/* Mobile — bottom-sheet selector, per the mobile-dropdown spec. */}
-      {isMobile && (
+      {mobile && (
         <AnimatePresence>
           {open && (
             <>
@@ -397,6 +414,8 @@ function CountrySelect({ value, onChange, isMobile }: { value: string; onChange:
 }
 
 function TextField({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
+  const vw = useViewportWidth();
+  const isMobile = vw < 768;
   return (
     <input
       value={value}
@@ -404,8 +423,9 @@ function TextField({ value, onChange, placeholder }: { value: string; onChange: 
       placeholder={placeholder}
       style={{
         background: C.surfaceAlt, border: `1px solid ${C.border}`, borderRadius: 10,
-        padding: "8px 12px", fontSize: "0.8rem", color: C.text, fontFamily: "'Inter', sans-serif",
-        outline: "none", width: 220, textAlign: "right",
+        padding: "9px 12px", fontSize: "0.82rem", color: C.text, fontFamily: "'Inter', sans-serif",
+        outline: "none", width: isMobile ? "100%" : 220, textAlign: isMobile ? "left" : "right",
+        boxSizing: "border-box",
       }}
     />
   );

@@ -86,57 +86,73 @@ function AppShell() {
   useEffect(() => {
     let alive = true;
 
-    async function syncSession() {
+    // One shared profile+role load per user. Login used to trigger this from
+    // getSession, onAuthStateChange (INITIAL_SESSION *and* SIGNED_IN) and a
+    // custom event all at once — each doing its own fetches and replacing
+    // userProfile with a fresh object, re-rendering the whole dashboard 3-4x
+    // right when a phone is busiest. Now concurrent callers share one promise.
+    let inflight: Promise<void> | null = null;
+    let inflightId: string | null = null;
+    let loadedFor: string | null = null;
+
+    const loadUser = (user: { id: string; email?: string | null; user_metadata?: Record<string, any> }, force = false): Promise<void> => {
+      if (inflight && inflightId === user.id) return inflight;
+      if (!force && loadedFor === user.id) return Promise.resolve();
+      inflightId = user.id;
+      inflight = (async () => {
+        const [profile, role] = await Promise.all([getProfile(user.id), fetchUserRole(user.id)]);
+        if (!alive) return;
+        loadedFor = user.id;
+        setUserRole(role);
+        setUserProfile(profile || {
+          ...DEFAULT_PROFILE,
+          name: user.user_metadata?.full_name || user.email?.split("@")[0] || DEFAULT_PROFILE.name,
+          email: user.email || "",
+        });
+        void initializeBackendSync();
+      })().finally(() => { inflight = null; inflightId = null; });
+      return inflight;
+    };
+
+    async function syncSession(force = false) {
       const { data } = await supabase.auth.getSession();
       if (!alive) return;
       const session = data.session;
       setLoggedIn(!!session);
       if (session?.user) {
-        const [profile, role] = await Promise.all([getProfile(session.user.id), fetchUserRole(session.user.id)]);
-        if (!alive) return;
-        setUserRole(role);
-        setUserProfile(profile || {
-          ...DEFAULT_PROFILE,
-          name: session.user.user_metadata?.full_name || session.user.email?.split("@")[0] || DEFAULT_PROFILE.name,
-          email: session.user.email || "",
-        });
-        void initializeBackendSync();
+        await loadUser(session.user, force);
       } else {
         // A localStorage flag is not proof of identity. Only a valid Supabase
         // session may unlock authenticated learner or mentor features.
+        loadedFor = null;
         localStorage.removeItem("loggedIn");
         setUserProfile(null);
         setUserRole("student");
       }
-      setAuthLoading(false);
+      if (alive) setAuthLoading(false);
     }
 
     void syncSession();
 
     const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
       if (!alive) return;
+      // TOKEN_REFRESHED fires every time a phone tab regains focus; the user
+      // hasn't changed, so refetching + re-rendering everything is pure waste.
+      // INITIAL_SESSION is already handled by syncSession() above.
+      if (event === "TOKEN_REFRESHED" || event === "INITIAL_SESSION") return;
       setLoggedIn(!!session);
       if (!session) {
+        loadedFor = null;
         setUserProfile(null);
         setAuthLoading(false);
         return;
       }
-      void initializeBackendSync();
-      void Promise.all([getProfile(session.user.id), fetchUserRole(session.user.id)]).then(([profile, role]) => {
-        if (!alive) return;
-        setUserRole(role);
-        setUserProfile(profile || {
-          ...DEFAULT_PROFILE,
-          name: session.user.user_metadata?.full_name || session.user.email?.split("@")[0] || DEFAULT_PROFILE.name,
-          email: session.user.email || "",
-        });
-        setAuthLoading(false);
-      });
       if (event === "PASSWORD_RECOVERY") {
         setAuthMode("set_new_password");
         setAuthLoading(false);
         return;
       }
+      void loadUser(session.user).then(() => { if (alive) setAuthLoading(false); });
       if (event === "SIGNED_IN") setAuthMode(null);
     });
 
@@ -149,7 +165,8 @@ function AppShell() {
       }
     }
 
-    const onCustomAuth = () => void syncSession();
+    // Explicit signal (e.g. a role/profile change) — force a fresh load.
+    const onCustomAuth = () => void syncSession(true);
     window.addEventListener("starfix:auth-changed", onCustomAuth);
 
     return () => {

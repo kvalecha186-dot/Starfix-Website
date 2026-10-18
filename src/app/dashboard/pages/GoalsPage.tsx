@@ -878,7 +878,8 @@ export function GoalsPage({
                   padding: "7px 15px", borderRadius: 999, fontSize: "0.78rem", cursor: "pointer",
                   border: `1px solid ${active ? C.gold : C.border}`,
                   background: active ? C.goldLight : "transparent",
-                  color: active ? "#7A6010" : C.textMuted,
+                  color: active ? C.gold : C.textMuted,
+                  fontWeight: active ? 600 : 400,
                   fontFamily: "'Inter', sans-serif", transition: "all 0.15s",
                 }}
               >

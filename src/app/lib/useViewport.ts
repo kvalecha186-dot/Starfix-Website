@@ -40,7 +40,18 @@ export function useViewport(): Viewport {
       if (frame != null) return;
       frame = window.requestAnimationFrame(() => {
         frame = null;
-        setVp(computeViewport(window.innerWidth));
+        const next = computeViewport(window.innerWidth);
+        // Phones fire resize continuously while scrolling (the address bar
+        // collapsing/expanding). Only re-render when a breakpoint flag
+        // actually flips — not on every pixel of width/height jitter.
+        setVp((prev) =>
+          prev.isMobile === next.isMobile &&
+          prev.isTablet === next.isTablet &&
+          prev.isDesktop === next.isDesktop &&
+          Math.abs(prev.width - next.width) < 2
+            ? prev
+            : next
+        );
       });
     };
     window.addEventListener("resize", onResize);

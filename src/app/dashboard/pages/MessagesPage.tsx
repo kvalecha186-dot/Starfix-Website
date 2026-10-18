@@ -405,9 +405,9 @@ export function MessagesPage({
   });
 
   useEffect(() => {
-    if (selectedId == null && list.length > 0) setSelectedId(list[0].mentorId);
+    if (selectedId == null && list.length > 0 && !isMobile) setSelectedId(list[0].mentorId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [list.length]);
+  }, [list.length, isMobile]);
 
   const selectedMentor = selectedId != null ? MENTORS.find((m) => m.id === selectedId) ?? null : null;
   const selectedConvo = selectedId != null ? getConversation(selectedId) : null;
@@ -523,28 +523,30 @@ export function MessagesPage({
           ) : (
             <>
               {/* Mentor header */}
-              <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "16px 22px", borderBottom: `1px solid ${C.borderMuted}` }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, padding: isMobile ? "12px 14px" : "16px 22px", borderBottom: `1px solid ${C.borderMuted}` }}>
                 {isMobile && (
                   <button
                     onClick={() => setSelectedId(null)}
                     title="Back to conversations"
                     style={{
-                      width: 30, height: 30, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center",
-                      background: "transparent", border: "none", borderRadius: 8, cursor: "pointer", color: C.textMuted,
+                      width: 32, height: 32, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center",
+                      background: C.surfaceAlt, border: `1px solid ${C.border}`, borderRadius: 8, cursor: "pointer", color: C.text,
                     }}
                   >
                     <ArrowLeft size={16} />
                   </button>
                 )}
-                <Avatar initials={selectedMentor.initials} color={selectedMentor.color} size={40} />
+                <Avatar initials={selectedMentor.initials} color={selectedMentor.color} size={isMobile ? 36 : 40} />
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: "0.9rem", fontWeight: 700, color: C.text }}>{selectedMentor.name}</div>
-                  <div style={{ fontSize: "0.74rem", color: C.textMuted }}>{selectedMentor.title} · {selectedMentor.company}</div>
+                  <div style={{ fontSize: "0.9rem", fontWeight: 700, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{selectedMentor.name}</div>
+                  <div style={{ fontSize: "0.72rem", color: C.textMuted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{selectedMentor.title}</div>
                 </div>
-                <NextSessionChip mentorId={selectedMentor.id} />
-                <div style={{ fontSize: "0.72rem", color: C.textFaint, whiteSpace: "nowrap" }}>
-                  Usually replies within 2 hours
-                </div>
+                {!isMobile && <NextSessionChip mentorId={selectedMentor.id} />}
+                {!isMobile && (
+                  <div style={{ fontSize: "0.72rem", color: C.textFaint, whiteSpace: "nowrap" }}>
+                    Usually replies within 2 hours
+                  </div>
+                )}
                 <div style={{ position: "relative" }} ref={menuRef}>
                   <button
                     onClick={() => setMenuOpen((o) => !o)}
@@ -564,8 +566,8 @@ export function MessagesPage({
                       transition={{ duration: 0.12 }}
                       style={{
                         position: "absolute", top: "calc(100% + 6px)", right: 0, zIndex: 20,
-                        background: "#fff", border: `1px solid ${C.border}`, borderRadius: 12,
-                        boxShadow: "0 8px 24px rgba(0,0,0,0.1)", padding: 6, minWidth: 160,
+                        background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12,
+                        boxShadow: "0 12px 36px rgba(0,0,0,0.55)", padding: 6, minWidth: 160,
                       }}
                     >
                       <button
