@@ -10,6 +10,7 @@ import {
   ArrowLeft,
   ShieldCheck,
   Send,
+  RotateCw,
 } from "lucide-react";
 import { supabase, upsertProfile } from "../lib/supabase";
 import { recordUserLogin } from "../lib/loginAudit";
@@ -656,7 +657,7 @@ export function SupabaseAuthModal({ mode, onClose, onSuccess, onSwitchMode }: Pr
                 <p style={{ color: "rgba(250,249,246,.5)", fontSize: 13, lineHeight: 1.5, margin: "0 0 18px" }}>
                   Please enter the 6-digit verification code sent to{" "}
                   <strong style={{ color: GOLD }}>
-                    {recoveryMethod === "email" ? email || "your email" : phoneNumber || "your phone"}
+                    {email || "your email"}
                   </strong>
                   .
                 </p>
@@ -668,7 +669,7 @@ export function SupabaseAuthModal({ mode, onClose, onSuccess, onSwitchMode }: Pr
                     value={otpCode}
                     inputMode="numeric"
                     autoComplete="one-time-code"
-                    onChange={(e) => setOtpCode(e.target.value.replace(/\\D/g, "").slice(0, 6))}
+                    onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
                     placeholder="123456"
                     style={{
                       ...fieldStyle,
