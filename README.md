@@ -57,7 +57,7 @@ At a high level, the browser application talks to Supabase for authentication an
 
 The payment flow includes a Razorpay integration. The payment function is kept in the Supabase functions directory rather than putting payment-secret handling in frontend code.
 
-\`\`\`text
+```text
 Learner / Mentor
        |
        v
@@ -77,9 +77,9 @@ Starfix Web App (React + TypeScript)
                      
 Separate companion app:
 Starfix Admin Dashboard
-\`\`\`
+```
 
-Some of the main database concepts used by the application include profiles, mentors, growth paths, milestones, bookings, enrolments, user progress, XP transactions, notifications, messages and resources. The SQL files in the \`supabase/\` directory are the best place to review the schema and database policies.
+Some of the main database concepts used by the application include profiles, mentors, growth paths, milestones, bookings, enrolments, user progress, XP transactions, notifications, messages and resources. The SQL files in the `supabase/` directory are the best place to review the schema and database policies.
 
 ## Run it locally
 
@@ -90,36 +90,36 @@ Some of the main database concepts used by the application include profiles, men
 
 ### Setup
 
-\`\`\`bash
+```bash
 git clone https://github.com/kvalecha186-dot/Starfix-Website.git
 cd Starfix-Website
 npm install
-\`\`\`
+```
 
-Create a local \`.env\` file using \`.env.example\` as the reference:
+Create a local `.env` file using `.env.example` as the reference:
 
-\`\`\`env
+```env
 VITE_SUPABASE_URL=https://your-project-ref.supabase.co
 VITE_SUPABASE_PUBLISHABLE_KEY=your_supabase_publishable_key
-\`\`\`
+```
 
 Then start the development server:
 
-\`\`\`bash
+```bash
 npm run dev
-\`\`\`
+```
 
 Create a production build with:
 
-\`\`\`bash
+```bash
 npm run build
-\`\`\`
+```
 
 Do not commit real credentials, service-role keys, payment secrets or other private environment values.
 
 ## Repository map
 
-\`\`\`text
+```text
 .
 ├── src/
 │   └── app/
@@ -134,7 +134,7 @@ Do not commit real credentials, service-role keys, payment secrets or other priv
 ├── .env.example
 ├── package.json
 └── vite.config.ts
-\`\`\`
+```
 
 The exact feature and component structure is continuing to evolve, so the source folders are the most up-to-date reference.
 
