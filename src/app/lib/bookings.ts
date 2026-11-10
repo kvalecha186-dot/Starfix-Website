@@ -167,7 +167,12 @@ export function isSessionBooked(mentorId: number, sessionType: string): boolean 
 export function updateBookingNotes(bookingId: string, notes: string) {
   const bookings = readLocal(); const index = bookings.findIndex((b) => b.id === bookingId);
   if (index !== -1) { bookings[index].notes = notes; writeLocal(bookings); }
-  void (async () => { const uid = await currentUserId(); if (!uid) return; await supabase.from("bookings").update({ notes }).eq("student_id", uid).or(`id.eq.${bookingId},external_id.eq.${bookingId}`); })();
+  void supabase.rpc("update_student_booking_notes", {
+    p_booking_id: bookingId,
+    p_notes: notes,
+  }).then(({ error }) => {
+    if (error) console.warn("Starfix booking note sync:", error.message);
+  });
 }
 
 export function clearBookings(): void {
