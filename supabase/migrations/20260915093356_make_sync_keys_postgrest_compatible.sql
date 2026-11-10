@@ -1,0 +1,14 @@
+drop index if exists public.saved_items_user_external_id_uidx;
+drop index if exists public.watch_queue_user_external_id_uidx;
+drop index if exists public.notifications_user_external_id_uidx;
+drop index if exists public.xp_transactions_user_external_id_uidx;
+drop index if exists public.bookings_user_external_id_uidx;
+drop index if exists public.conversations_user_external_id_uidx;
+drop index if exists public.messages_conversation_external_id_uidx;
+create unique index saved_items_user_external_id_uidx on public.saved_items(user_id, external_id);
+create unique index watch_queue_user_external_id_uidx on public.watch_queue(user_id, external_id);
+create unique index notifications_user_external_id_uidx on public.notifications(user_id, external_id);
+create unique index xp_transactions_user_external_id_uidx on public.xp_transactions(user_id, external_id);
+create unique index bookings_user_external_id_uidx on public.bookings(student_id, external_id);
+create unique index conversations_user_external_id_uidx on public.conversations(student_id, external_id);
+create unique index messages_conversation_external_id_uidx on public.messages(conversation_id, external_id);
