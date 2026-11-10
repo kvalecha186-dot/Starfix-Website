@@ -1,0 +1,12 @@
+drop policy if exists "Users manage their own settings" on public.app_settings;
+create policy "Users manage their own settings" on public.app_settings for all to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
+drop policy if exists "Users manage their own milestone progress" on public.milestone_progress;
+create policy "Users manage their own milestone progress" on public.milestone_progress for all to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
+drop policy if exists "Users manage their own notifications" on public.notifications;
+create policy "Users manage their own notifications" on public.notifications for all to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
+drop policy if exists "Users manage their own saved items" on public.saved_items;
+create policy "Users manage their own saved items" on public.saved_items for all to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
+drop policy if exists "Users manage their own path progress" on public.user_progress;
+create policy "Users manage their own path progress" on public.user_progress for all to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
+drop policy if exists "Users manage their own watch queue" on public.watch_queue;
+create policy "Users manage their own watch queue" on public.watch_queue for all to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
