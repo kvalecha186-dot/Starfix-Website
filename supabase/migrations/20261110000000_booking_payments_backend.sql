@@ -145,7 +145,7 @@ revoke insert, delete on public.bookings from anon, authenticated;
 grant update (status, notes, meet_link) on public.bookings to authenticated;
 
 -- Student booking creation is atomic and derives price/currency from the trusted session catalog.
-create or replace function public.create_student_booking(
+create or replace function private.create_student_booking(
   p_mentor_id uuid,
   p_session_type_id uuid,
   p_availability_id uuid,
@@ -227,23 +227,40 @@ begin
 end;
 $$;
 
+revoke all on function private.create_student_booking(uuid,uuid,uuid,timestamptz,timestamptz,numeric,text,text,integer,text,text,text,text,text,text,text,text,text,text) from public, anon;
+grant execute on function private.create_student_booking(uuid,uuid,uuid,timestamptz,timestamptz,numeric,text,text,integer,text,text,text,text,text,text,text,text,text,text) to authenticated;
+
+create or replace function public.create_student_booking(
+  p_mentor_id uuid, p_session_type_id uuid, p_availability_id uuid,
+  p_scheduled_start timestamptz, p_scheduled_end timestamptz, p_amount numeric,
+  p_currency text, p_external_id text, p_mentor_num integer, p_mentor_name text,
+  p_mentor_title text, p_mentor_company text, p_mentor_color text, p_mentor_initials text,
+  p_session_type text, p_duration text, p_price text, p_booking_date text, p_booking_time text
+)
+returns public.bookings language sql security invoker set search_path = ''
+as $ select private.create_student_booking($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19) $;
 revoke all on function public.create_student_booking(uuid,uuid,uuid,timestamptz,timestamptz,numeric,text,text,integer,text,text,text,text,text,text,text,text,text,text) from public, anon;
 grant execute on function public.create_student_booking(uuid,uuid,uuid,timestamptz,timestamptz,numeric,text,text,integer,text,text,text,text,text,text,text,text,text,text) to authenticated;
 
-create or replace function public.update_student_booking_notes(p_booking_id uuid, p_notes text)
+create or replace function private.update_student_booking_notes(p_booking_id text, p_notes text)
 returns void language plpgsql security definer set search_path = ''
 as $$
 begin
   update public.bookings
   set notes = left(coalesce(p_notes, ''), 2000)
-  where id = p_booking_id
+  where (id::text = p_booking_id or external_id = p_booking_id)
     and student_id = (select auth.uid())
     and status in ('pending','confirmed','Booked');
   if not found then raise exception 'Booking not found or no longer editable'; end if;
 end;
 $$;
-revoke all on function public.update_student_booking_notes(uuid,text) from public, anon;
-grant execute on function public.update_student_booking_notes(uuid,text) to authenticated;
+revoke all on function private.update_student_booking_notes(text,text) from public, anon;
+grant execute on function private.update_student_booking_notes(text,text) to authenticated;
+create or replace function public.update_student_booking_notes(p_booking_id text, p_notes text)
+returns void language sql security invoker set search_path = ''
+as $ select private.update_student_booking_notes($1,$2) $;
+revoke all on function public.update_student_booking_notes(text,text) from public, anon;
+grant execute on function public.update_student_booking_notes(text,text) to authenticated;
 
 -- Only a completed booking can receive a review from its own student.
 drop policy if exists "A student can review their own completed booking" on public.reviews;
