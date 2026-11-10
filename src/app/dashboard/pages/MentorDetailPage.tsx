@@ -73,12 +73,13 @@ function slugify(name: string) { return name.toLowerCase().replace(/[^a-z0-9]+/g
 /* ─── Component ────────────────────────────────────── */
 
 export function MentorDetailPage({
-  mentorId, onNavigate, onSelectMentor, onMessageMentor,
+  mentorId, onNavigate, onSelectMentor, onMessageMentor, onChooseMentor,
 }: {
   mentorId: number;
   onNavigate?: (p: DashPage) => void;
   onSelectMentor?: (id: number) => void;
   onMessageMentor?: (id: number) => void;
+  onChooseMentor?: (id: number, name: string) => void;
 }) {
   const { isDesktop } = useViewport();
   const routerNavigate = useNavigate();
@@ -689,6 +690,17 @@ export function MentorDetailPage({
             >
               <MessageCircle size={14} /> Message Mentor
             </motion.button>
+            {onChooseMentor && dbMentor && (
+              <motion.button
+                type="button"
+                onClick={() => onChooseMentor(mentor.id, mentor.name)}
+                whileHover={{ opacity: 0.92 }}
+                whileTap={{ scale: 0.98 }}
+                style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 7, background: C.gold, color: "#fff", border: "none", borderRadius: C.radius, padding: "12px 0", fontSize: "0.84rem", fontWeight: 700, cursor: "pointer", fontFamily: "'Inter', sans-serif", marginBottom: 8 }}
+              >
+                Select this mentor
+              </motion.button>
+            )}
           </div>
         </div>
       </div>
