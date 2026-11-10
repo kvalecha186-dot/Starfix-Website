@@ -84,7 +84,7 @@ export function MentorDetailPage({
   const { isDesktop } = useViewport();
   const routerNavigate = useNavigate();
   const staticMentor = MENTORS.find((m) => m.id === mentorId);
-  const detail = MENTOR_DETAILS[mentorId] || {
+  const detail = dbMentor ? (MENTOR_DETAILS[mentorId] || {
     bio: staticMentor?.title ? staticMentor.name + " is a " + staticMentor.title + " focused on practical, outcome-driven mentoring." : "Starfix mentor focused on practical, outcome-driven mentoring.",
     about: "This mentor's detailed profile is being completed. You can still view their verified Starfix profile, session types, availability, and book a session.",
     experience: "Professional mentor",
@@ -101,12 +101,17 @@ export function MentorDetailPage({
       { q: "Can I message the mentor before booking?", a: "Yes. Use the Message Mentor button to start a conversation." },
     ],
     reviews: [],
+  }) : {
+    bio: 'Illustrative profile preview only.',
+    about: 'This is a sample design profile, not a verified mentor account. Booking and messaging are unavailable until a mentor completes onboarding.',
+    experience: 'Not verified', responseTime: 'Not available', languages: [], location: 'Not available',
+    learn: [], learningStyle: [], availability: [], relatedPaths: [], content: [], faq: [], reviews: [],
   };
-  const extra = MENTOR_EXTRA[mentorId] || {
+  const extra = dbMentor ? (MENTOR_EXTRA[mentorId] || {
     results: [],
     timeline: [],
     sessions: [],
-  };
+  }) : { results: [], timeline: [], sessions: [] };
   const [dbMentor, setDbMentor] = useState<any>(null);
   const [dbSessions, setDbSessions] = useState<any[]>([]);
   const [dbAvailability, setDbAvailability] = useState<any[]>([]);
@@ -207,7 +212,7 @@ export function MentorDetailPage({
   }
 
   const config = CATEGORY_CONFIG[mentor.category] ?? CATEGORY_CONFIG["Coding"];
-  const similar = MENTORS.filter((m) => m.category === mentor.category && m.id !== mentor.id).slice(0, 3);
+  const similar = dbMentor ? MENTORS.filter((m) => m.category === mentor.category && m.id !== mentor.id).slice(0, 3) : [];
   const checkoutAvailability = dbAvailability.length
     ? Object.values(dbAvailability.reduce((acc: Record<string, { date: string; slots: string[] }>, slot: any) => {
         const d = new Date(slot.start_at);
@@ -225,6 +230,12 @@ export function MentorDetailPage({
 
   return (
     <div style={{ background: C.bg, minHeight: "100vh" }}>
+      {!dbMentor && (
+        <div style={{ margin: "12px 16px", padding: "12px 16px", border: "1px solid #B7791F", borderRadius: 12, background: "rgba(183,121,31,.10)", color: C.text, fontSize: 13 }}>
+          Sample profile preview — this is not a verified mentor. Booking and messaging are disabled.
+        </div>
+      )}
+
       {/* Slug note is informational only — real routing lives at /mentors/:slug once wired up */}
       <div style={{ padding: isDesktop ? "28px 48px 0" : "14px 16px 0" }}>
         <motion.button
