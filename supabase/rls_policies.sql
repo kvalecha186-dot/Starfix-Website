@@ -4,6 +4,21 @@
 -- https://supabase.com/dashboard/project/mndyaxvkjzzgyvfrxgvm/sql
 -- ============================================================
 
+-- Private admin identity helper: avoid recursive profile RLS checks.
+create schema if not exists private;
+revoke all on schema private from public, anon;
+grant usage on schema private to authenticated;
+create or replace function private.is_admin()
+returns boolean language sql stable security definer set search_path = ''
+as $ select exists (select 1 from public.profiles p where p.id = (select auth.uid()) and p.role = 'admin') $;
+revoke all on function private.is_admin() from public, anon;
+grant execute on function private.is_admin() to authenticated;
+create or replace function public.is_admin()
+returns boolean language sql stable security invoker set search_path = ''
+as $ select private.is_admin() $;
+revoke all on function public.is_admin() from public, anon;
+grant execute on function public.is_admin() to authenticated;
+
 -- Enable RLS on all tables
 alter table public.profiles enable row level security;
 alter table public.growth_paths enable row level security;
@@ -51,21 +66,19 @@ drop policy if exists "Users can manage their watch queue" on public.watch_queue
 
 -- ============================================
 -- 1. PROFILES
--- Anyone can view public profiles (needed for mentor avatars, peer interaction).
--- Users can only insert or update their own row.
+-- Private account data is visible only to its owner and verified admins.
+-- Mentor catalog details are served from the separate mentor directory.
 -- ============================================
-create policy "Public profiles are viewable by everyone"
-  on public.profiles for select
-  using (true);
+create policy "Users can view their own profile or admins can view all"
+  on public.profiles for select to authenticated
+  using (auth.uid() = id or private.is_admin());
 
-create policy "Users can insert their own profile"
-  on public.profiles for insert
-  to authenticated
-  with check (auth.uid() = id);
+create policy "Users can insert their own student profile"
+  on public.profiles for insert to authenticated
+  with check (auth.uid() = id and role = 'student');
 
 create policy "Users can update their own profile"
-  on public.profiles for update
-  to authenticated
+  on public.profiles for update to authenticated
   using (auth.uid() = id)
   with check (auth.uid() = id);
 
@@ -204,3 +217,14 @@ create policy "Users can manage their watch queue"
   to authenticated
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
+
+-- Admin reporting functions are SECURITY INVOKER, so admins need scoped read
+-- access to operational records while ordinary users remain restricted.
+drop policy if exists "Admins can view all bookings" on public.bookings;
+create policy "Admins can view all bookings"
+  on public.bookings for select to authenticated using (private.is_admin());
+
+revoke all on public.profiles from anon;
+revoke update on public.profiles from anon, authenticated;
+grant update (full_name,email,avatar_url,bio,country,learning_language,learning_languages,learning_style,career_goal,goal_id,goal_title,level,daily_time,preference,obstacle,updated_at)
+  on public.profiles to authenticated;
