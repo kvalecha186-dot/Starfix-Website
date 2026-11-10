@@ -121,7 +121,7 @@ export function MentorDetailPage({
 
   useEffect(() => {
     void (async () => {
-      const mentorRow = (await supabase.from("mentors").select("*").eq("legacy_id", mentorId).maybeSingle()).data;
+      const mentorRow = (await supabase.from("mentors").select("id,legacy_id,profile_id,name,initials,color,headline,company,years_experience,rating,languages,location,bio,category,skills,price,free,availability,students_count,linkedin_url,education,mentoring_approach,offers_free_intro,onboarding_completed").eq("legacy_id", mentorId).maybeSingle()).data;
       if (!mentorRow) return;
       setDbMentor(mentorRow);
       const sessions = (await supabase.from("session_types").select("id,title,description,duration_minutes,price,currency,active").eq("mentor_id", mentorRow.id).eq("active", true).order("price")).data || [];
@@ -192,7 +192,7 @@ export function MentorDetailPage({
 
   const handleBookSession = () => {
     if (!mentor || !detail || !extra || !currentSess || isBooked) return;
-    setShowCheckout(true);
+    dbMentor && setShowCheckout(true);
   };
 
   if (!mentor || !detail || !extra) {
