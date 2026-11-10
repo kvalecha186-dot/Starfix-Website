@@ -12,8 +12,7 @@ import { C } from "../dashColors";
 import { useViewport } from "../../lib/useViewport";
 import type { DashPage } from "../DashboardLayout";
 import { MENTORS, type Mentor } from "./MentorsPage";
-import { MENTOR_DETAILS } from "../mentorData";
-import { MENTOR_EXTRA, CATEGORY_CONFIG } from "../mentorExtra";
+import { CATEGORY_CONFIG } from "../mentorExtra";
 import { getAllEnrollments, ENROLLMENTS_CHANGED_EVENT } from "../../lib/pathProgress";
 import { PATHS } from "./GoalsPage";
 import { createBooking, isSessionBooked, BOOKINGS_CHANGED_EVENT, getBookingHistory, hydrateBookings } from "../../lib/bookings";
@@ -85,34 +84,36 @@ export function MentorDetailPage({
   const routerNavigate = useNavigate();
   const staticMentor = MENTORS.find((m) => m.id === mentorId);
   const [dbMentor, setDbMentor] = useState<any>(null);
-  const detail = dbMentor ? (MENTOR_DETAILS[mentorId] || {
-    bio: staticMentor?.title ? staticMentor.name + " is a " + staticMentor.title + " focused on practical, outcome-driven mentoring." : "Starfix mentor focused on practical, outcome-driven mentoring.",
-    about: "This mentor's detailed profile is being completed. You can still view their verified Starfix profile, session types, availability, and book a session.",
-    experience: "Professional mentor",
-    responseTime: "Usually responds within 24 hours",
-    languages: ["English"],
-    location: "Online",
-    learn: staticMentor?.skills || [],
-    learningStyle: ["Practical guidance", "Structured feedback", "Goal-oriented"],
+  const detail = dbMentor ? {
+    bio: dbMentor.bio || "No biography has been provided yet.",
+    about: dbMentor.bio || "Mentor profile information will appear here when provided by the verified mentor.",
+    experience: dbMentor.years_experience ? `${dbMentor.years_experience} years` : "Not provided",
+    responseTime: "Not provided",
+    languages: Array.isArray(dbMentor.languages) ? dbMentor.languages : [],
+    location: dbMentor.location || "Not provided",
+    learn: Array.isArray(dbMentor.skills) ? dbMentor.skills : [],
+    learningStyle: dbMentor.mentoring_approach ? [dbMentor.mentoring_approach] : [],
     availability: [],
-    relatedPaths: [staticMentor?.category || "Growth"],
+    relatedPaths: dbMentor.category ? [dbMentor.category] : [],
     content: [],
-    faq: [
-      { q: "What can I expect from a session?", a: "A focused 1:1 conversation around your goal, current progress, and next steps." },
-      { q: "Can I message the mentor before booking?", a: "Yes. Use the Message Mentor button to start a conversation." },
-    ],
+    faq: [],
     reviews: [],
-  }) : {
-    bio: 'Illustrative profile preview only.',
-    about: 'This is a sample design profile, not a verified mentor account. Booking and messaging are unavailable until a mentor completes onboarding.',
-    experience: 'Not verified', responseTime: 'Not available', languages: [], location: 'Not available',
-    learn: [], learningStyle: [], availability: [], relatedPaths: [], content: [], faq: [], reviews: [],
+  } : {
+    bio: "Illustrative profile preview only.",
+    about: "This is a sample design profile, not a verified mentor account. Booking and messaging are unavailable until a mentor completes onboarding.",
+    experience: "Not verified",
+    responseTime: "Not available",
+    languages: [],
+    location: "Not available",
+    learn: [],
+    learningStyle: [],
+    availability: [],
+    relatedPaths: [],
+    content: [],
+    faq: [],
+    reviews: [],
   };
-  const extra = dbMentor ? (MENTOR_EXTRA[mentorId] || {
-    results: [],
-    timeline: [],
-    sessions: [],
-  }) : { results: [], timeline: [], sessions: [] };
+  const extra = { results: [], timeline: [], sessions: [] };
   const [dbSessions, setDbSessions] = useState<any[]>([]);
   const [dbAvailability, setDbAvailability] = useState<any[]>([]);
   const [openFaq, setOpenFaq] = useState<number | null>(0);
