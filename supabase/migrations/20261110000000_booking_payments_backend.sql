@@ -30,6 +30,27 @@ create table if not exists public.session_types (
   unique (mentor_id, title)
 );
 
+-- Create verified session options from the existing mentor pricing catalog.
+insert into public.session_types (mentor_id, title, duration_minutes, price, currency, active)
+select
+  m.id,
+  p.item ->> 'label',
+  greatest(10, least(480, coalesce(nullif(regexp_replace(p.item ->> 'label', '[^0-9]', '', 'g'), '')::integer, 45))),
+  case
+    when lower(coalesce(p.item ->> 'price', '')) like '%free%' then 0
+    else coalesce(nullif(regexp_replace(p.item ->> 'price', '[^0-9.]', '', 'g'), '')::numeric, 0)
+  end,
+  'INR',
+  true
+from public.mentors m
+cross join lateral jsonb_array_elements(coalesce(m.pricing, '[]'::jsonb)) as p(item)
+where nullif(p.item ->> 'label', '') is not null
+on conflict (mentor_id, title) do update
+set duration_minutes = excluded.duration_minutes,
+    price = excluded.price,
+    currency = excluded.currency,
+    active = true;
+
 create table if not exists public.mentor_availability (
   id uuid primary key default gen_random_uuid(),
   mentor_id uuid not null references public.mentors(id) on delete cascade,
@@ -141,8 +162,17 @@ on public.bookings for update to authenticated
 using (exists (select 1 from public.mentors m where m.id = mentor_id and m.profile_id = (select auth.uid())))
 with check (exists (select 1 from public.mentors m where m.id = mentor_id and m.profile_id = (select auth.uid())));
 
-revoke insert, delete on public.bookings from anon, authenticated;
+revoke all on public.bookings from public, anon, authenticated;
+grant select on public.bookings to authenticated;
 grant update (status, notes, meet_link) on public.bookings to authenticated;
+revoke all on public.session_types, public.mentor_availability from public, anon, authenticated;
+grant select on public.session_types, public.mentor_availability to anon, authenticated;
+grant insert, update, delete on public.session_types, public.mentor_availability to authenticated;
+revoke all on public.public_mentor_directory from public;
+grant select on public.public_mentor_directory to anon, authenticated;
+revoke all on public.profiles from anon;
+grant select, insert on public.profiles to authenticated;
+grant update (full_name, avatar_url, bio, country, learning_language, learning_languages, learning_style, career_goal, goal_id, goal_title, level, daily_time, preference, obstacle, xp, streak, updated_at) on public.profiles to authenticated;
 
 -- Student booking creation is atomic and derives price/currency from the trusted session catalog.
 create or replace function private.create_student_booking(
