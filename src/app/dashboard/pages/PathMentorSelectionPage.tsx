@@ -6,7 +6,6 @@ import { C } from "../dashColors";
 import { useViewport } from "../../lib/useViewport";
 import { PATHS } from "./GoalsPage";
 import { fetchMentorsFromDb } from "../../lib/supabaseDb";
-import { MENTOR_DETAILS } from "../mentorData";
 import { isEnrolled } from "../../lib/pathProgress";
 
 /* ─────────────────────────────────────────────────────────────────────────
@@ -83,7 +82,6 @@ export function PathMentorSelectionPage() {
         ) : (
         <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: isMobile ? 14 : 18 }}>
           {pool.map((m, i) => {
-            const detail = MENTOR_DETAILS[m.id];
             return (
               <motion.button
                 key={m.id}
@@ -109,7 +107,7 @@ export function PathMentorSelectionPage() {
                   <div style={{ minWidth: 0 }}>
                     <div style={{ fontSize: "0.98rem", fontWeight: 700, color: C.text }}>{m.name}</div>
                     <div style={{ fontSize: "0.78rem", color: C.textMuted }}>{m.title}</div>
-                    <div style={{ fontSize: "0.72rem", color: C.textFaint }}>{m.company} · {detail?.experience ?? "5+ years"}</div>
+                    <div style={{ fontSize: "0.72rem", color: C.textFaint }}>{m.company} · {m.yearsExperience ? `${m.yearsExperience} years` : "Experience not provided"}</div>
                   </div>
                 </div>
 
