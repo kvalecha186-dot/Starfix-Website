@@ -1,6 +1,6 @@
 import { motion, useInView } from "motion/react";
 import { useRef, useState } from "react";
-import { Star, CheckCircle, MessageCircle, Calendar } from "lucide-react";
+import { Star, MessageCircle, Calendar } from "lucide-react";
 
 const MENTORS = [
   {
@@ -140,7 +140,7 @@ function MentorCard({ m, i }: { m: typeof MENTORS[0]; i: number }) {
               >
                 {m.name}
               </h4>
-              <CheckCircle size={13} style={{ color: hov ? "#F4D67A" : "#D4AF37", flexShrink: 0, transition: "color 0.25s" }} />
+              <span className="rounded-full px-1.5 py-0.5 text-[8px] tracking-wide" style={{ color: "#D4AF37", border: "1px solid rgba(212,175,55,0.28)" }}>SAMPLE</span>
             </div>
             <p style={{ fontFamily: "'Inter', sans-serif", fontSize: "0.72rem", color: "rgba(250,249,246,0.4)", lineHeight: 1.4 }}>
               {m.role}
@@ -222,7 +222,10 @@ function MentorCard({ m, i }: { m: typeof MENTORS[0]; i: number }) {
         {/* Actions — pushed to bottom */}
         <div className="flex gap-2 mt-auto">
           <button
-            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-medium"
+            type="button"
+            disabled
+            title="Sample preview only — live booking is available from verified mentor profiles."
+            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-medium opacity-60 cursor-not-allowed"
             style={{
               fontFamily:  "'Inter', sans-serif",
               background:  hov ? "linear-gradient(135deg, #F4D67A, #D4AF37)" : "rgba(212,175,55,0.1)",
@@ -234,7 +237,10 @@ function MentorCard({ m, i }: { m: typeof MENTORS[0]; i: number }) {
             <Calendar size={13} /> Book Session
           </button>
           <button
-            className="w-9 h-9 flex items-center justify-center rounded-xl"
+            type="button"
+            disabled
+            title="Sample preview only"
+            className="w-9 h-9 flex items-center justify-center rounded-xl opacity-60 cursor-not-allowed"
             style={{
               background:   hov ? "rgba(212,175,55,0.09)" : "rgba(255,255,255,0.04)",
               border:       hov ? "1px solid rgba(212,175,55,0.28)" : "1px solid rgba(255,255,255,0.07)",
@@ -276,7 +282,7 @@ export function MentorSection() {
             className="uppercase tracking-[0.18em] text-[11px] mb-8"
             style={{ color: "#D4AF37", fontFamily: "'Inter', sans-serif", fontWeight: 500 }}
           >
-            Vetted · Verified · World-class
+            Mentor directory preview
           </p>
 
           {/* Primary statement */}
@@ -322,8 +328,7 @@ export function MentorSection() {
               fontSize:    "0.95rem",
             }}
           >
-            Connect with world-class mentors in coding, fitness, confidence,
-            career growth, and personal transformation.
+            The cards below are illustrative sample profiles. Live mentor listings and bookable sessions appear only after a mentor completes onboarding and verification.
           </motion.p>
         </motion.div>
 
