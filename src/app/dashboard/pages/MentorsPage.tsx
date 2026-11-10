@@ -102,7 +102,8 @@ const FILTER_PILLS = [
 export function MentorsPage({ onNavigate, userProfile, categoryOverride, onSelectMentor }: { onNavigate?: (p: DashPage) => void; userProfile?: UserProfile | null; categoryOverride?: string | null; onSelectMentor?: (id: number) => void }) {
   const { isDesktop, isMobile } = useViewport();
   const defaultCategory = categoryOverride || (userProfile?.goalId ? (GOAL_META[userProfile.goalId]?.categoryTab || "All") : "All");
-  const [mentorList, setMentorList] = useState<any[]>(MENTORS);
+  const [mentorList, setMentorList] = useState<any[]>([]);
+  const [loadingMentors, setLoadingMentors] = useState(true);
   const [search,   setSearch]   = useState("");
   const [category, setCategory] = useState(defaultCategory);
   const [filters,  setFilters]  = useState<string[]>([]);
@@ -110,11 +111,12 @@ export function MentorsPage({ onNavigate, userProfile, categoryOverride, onSelec
   useEffect(() => { setCategory(defaultCategory); }, [defaultCategory]);
 
   useEffect(() => {
-    fetchMentorsFromDb().then((dbMentors) => {
-      if (dbMentors && dbMentors.length > 0) {
-        setMentorList(dbMentors);
-      }
-    });
+    let active = true;
+    fetchMentorsFromDb()
+      .then((dbMentors) => { if (active) setMentorList(dbMentors || []); })
+      .catch((error) => { console.error("Unable to load verified mentors:", error); if (active) setMentorList([]); })
+      .finally(() => { if (active) setLoadingMentors(false); });
+    return () => { active = false; };
   }, []);
 
   const toggleFilter = (key: string) =>
@@ -150,6 +152,9 @@ export function MentorsPage({ onNavigate, userProfile, categoryOverride, onSelec
           Mentors
         </h1>
 
+        <p style={{ color: C.textMuted, fontSize: "0.82rem", lineHeight: 1.6, margin: "-12px 0 18px", maxWidth: 650 }}>
+          Only claimed and completed mentor profiles appear here. Ratings and availability are loaded from the live catalogue.
+        </p>
         {/* Search + filters */}
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18, flexWrap: "wrap" }}>
           <div style={{ position: "relative", flex: isDesktop ? "1 1 260px" : "1 1 100%", maxWidth: isDesktop ? 320 : "100%" }}>
@@ -239,7 +244,7 @@ export function MentorsPage({ onNavigate, userProfile, categoryOverride, onSelec
       >
         {filtered.length === 0 ? (
           <div style={{ gridColumn: "1 / -1", padding: "48px 0", textAlign: "center", color: C.textMuted, fontSize: "0.86rem" }}>
-            No mentors match your search.
+            {loadingMentors ? 'Loading verified mentor profiles…' : 'No verified mentors are available yet. Profiles appear here after the mentor account is confirmed and onboarding is completed.'}
           </div>
         ) : (
           filtered.map((m, i) => <MentorCard key={m.id} mentor={m} delay={i * 0.04} onSelect={onSelectMentor} />)
