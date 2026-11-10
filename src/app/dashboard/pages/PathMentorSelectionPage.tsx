@@ -1,10 +1,11 @@
 import { useParams, useNavigate, Link } from "react-router";
+import { useEffect, useState } from "react";
 import { motion } from "motion/react";
 import { ArrowLeft, Star, Users, Clock } from "lucide-react";
 import { C } from "../dashColors";
 import { useViewport } from "../../lib/useViewport";
 import { PATHS } from "./GoalsPage";
-import { MENTORS } from "./MentorsPage";
+import { fetchMentorsFromDb } from "../../lib/supabaseDb";
 import { MENTOR_DETAILS } from "../mentorData";
 import { isEnrolled } from "../../lib/pathProgress";
 
@@ -23,6 +24,17 @@ export function PathMentorSelectionPage() {
   const { pathId } = useParams<{ pathId: string }>();
   const navigate = useNavigate();
   const { isDesktop, isMobile } = useViewport();
+  const [mentorList, setMentorList] = useState<any[]>([]);
+  const [loadingMentors, setLoadingMentors] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    fetchMentorsFromDb()
+      .then(rows => { if (active) setMentorList(rows || []); })
+      .catch(error => { console.error("Unable to load verified mentors:", error); if (active) setMentorList([]); })
+      .finally(() => { if (active) setLoadingMentors(false); });
+    return () => { active = false; };
+  }, []);
   const p = PATHS.find((x) => x.id === pathId);
 
   if (!p) {
@@ -39,8 +51,7 @@ export function PathMentorSelectionPage() {
     return null;
   }
 
-  const mentors = MENTORS.filter((m) => m.category === p.mentorCategory);
-  const pool = mentors.length ? mentors : MENTORS;
+  const pool = mentorList.filter((m) => m.category === p.mentorCategory);
 
   return (
     <div style={{ background: C.bg, minHeight: "100vh", padding: isDesktop ? "40px 48px 72px" : "20px 16px 56px" }}>
@@ -63,6 +74,13 @@ export function PathMentorSelectionPage() {
           </p>
         </div>
 
+        {loadingMentors ? (
+          <p style={{ color: C.textMuted, textAlign: "center", padding: 28 }}>Loading verified mentors…</p>
+        ) : pool.length === 0 ? (
+          <div style={{ color: C.textMuted, textAlign: "center", padding: 28, border: `1px solid ${C.border}`, borderRadius: C.radius }}>
+            No verified mentors are currently available for this path. Please check back after a mentor completes onboarding.
+          </div>
+        ) : (
         <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: isMobile ? 14 : 18 }}>
           {pool.map((m, i) => {
             const detail = MENTOR_DETAILS[m.id];
@@ -117,6 +135,7 @@ export function PathMentorSelectionPage() {
             );
           })}
         </div>
+        )}
       </div>
     </div>
   );
