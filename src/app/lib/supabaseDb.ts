@@ -263,10 +263,13 @@ export async function cancelBookingInDb(bookingId: string): Promise<boolean> {
   try {
     if (!isValidUuid(bookingId)) return true;
 
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return false;
     const { error } = await supabase
       .from("bookings")
-      .update({ status: "Cancelled" })
-      .eq("id", bookingId);
+      .update({ status: "cancelled" })
+      .eq("id", bookingId)
+      .eq("student_id", user.id);
 
     if (error) {
       console.warn("Failed to cancel booking in Supabase:", error.message);
@@ -396,8 +399,8 @@ export async function fetchMessagesFromDb(userId: string, mentorId?: number): Pr
     }
     return (data || []).map((m: any) => ({
       id: m.id,
-      sender: m.sender || "user",
-      text: m.body || m.text || "",
+      sender: m.sender_type || "user",
+      text: m.text || "",
       sentAt: m.created_at,
       status: m.status,
     }));
@@ -414,19 +417,32 @@ export async function sendMessageToDb(
   senderType: "user" | "mentor" = "user"
 ): Promise<boolean> {
   try {
-    const conversationId = `conv_${userId}_${mentorId}`;
-    const id = crypto.randomUUID();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) return false;
+
+    const { data: mentor, error: mentorError } = await supabase
+      .from("public_mentor_directory")
+      .select("id, profile_id")
+      .eq("legacy_id", mentorId)
+      .maybeSingle();
+    if (mentorError || !mentor?.id) return false;
+
+    if (senderType === "user" && user.id !== userId) return false;
+    if (senderType === "mentor" && mentor.profile_id !== user.id) return false;
 
     const { error } = await supabase
       .from("messages")
       .insert({
-        id,
-        conversation_id: conversationId,
-        sender: senderType,
-        body: text,
+        id: crypto.randomUUID(),
+        conversation_id: `conv_${userId}_${mentorId}`,
+        user_id: userId,
+        mentor_id: mentor.id,
+        sender_type: senderType,
+        text: text.trim().slice(0, 4000),
         status: "sent",
       });
 
+    if (error) console.warn("Could not send message to Supabase:", error.message);
     return !error;
   } catch (err) {
     console.warn("Exception sending message to Supabase:", err);
@@ -570,9 +586,15 @@ export async function saveEnrollmentToDb(userId: string, enrollment: any): Promi
     const pathUuid = mappings.slugToId.get(enrollment.pathId) || enrollment.pathId;
 
     // 1. Try saving to path_enrollments
-    const mentorUuid = enrollment.mentorId
-      ? `00000000-0000-0000-0000-${String(enrollment.mentorId).padStart(12, "0")}`
-      : null;
+    let mentorUuid: string | null = null;
+    if (enrollment.mentorId) {
+      const { data: mentor } = await supabase
+        .from("public_mentor_directory")
+        .select("id")
+        .eq("legacy_id", enrollment.mentorId)
+        .maybeSingle();
+      mentorUuid = mentor?.id || null;
+    }
 
     const { error: enrollError } = await supabase
       .from("path_enrollments")
