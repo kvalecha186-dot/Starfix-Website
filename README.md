@@ -1,5 +1,7 @@
 # Starfix — Mentorship & Personal Growth Platform
 
+[![Production build](https://github.com/kvalecha186-dot/Starfix-Website/actions/workflows/build.yml/badge.svg)](https://github.com/kvalecha186-dot/Starfix-Website/actions/workflows/build.yml) [![Live app](https://img.shields.io/badge/Live%20app-Vercel-black?logo=vercel)](https://starfix-website.vercel.app)
+
 Starfix is a platform I'm building around one simple idea: finding the right mentor should be easier, and personal growth should be something people can actually track.
 
 The platform brings learners and mentors together. Learners can explore mentors, work towards goals and follow structured growth paths. Mentors get their own space to manage their profiles and mentees, while the admin dashboard gives a broader view of what's happening across the platform.
@@ -80,6 +82,23 @@ Starfix Admin Dashboard
 ```
 
 Some of the main database concepts used by the application include profiles, mentors, growth paths, milestones, bookings, enrolments, user progress, XP transactions, notifications, messages and resources. The SQL files in the `supabase/` directory are the best place to review the schema and database policies.
+
+## Database setup and deployment
+
+The database is managed through versioned SQL migrations in `supabase/migrations/`. The baseline migration creates the core schema, RLS policies, auth trigger, seed catalog and the supporting progress/admin tables. Later migrations add the verified booking, availability and payment ledger, followed by message-membership hardening.
+
+For a fresh Supabase project:
+
+```bash
+supabase login
+supabase link --project-ref mndyaxvkjzzgyvfrxgvm
+supabase db push
+supabase functions deploy razorpay-payments --no-verify-jwt
+```
+
+Set these Edge Function secrets in Supabase before testing paid checkout: `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET`, and `PAYMENTS_ALLOWED_ORIGIN`. Use Razorpay test credentials first. Never put the Razorpay secret or Supabase service-role key in browser variables or GitHub.
+
+The app can build and deploy without payment secrets, but paid checkout remains unavailable until those secrets and the Razorpay webhook are configured and tested. Do not enable live payments until successful, failed, duplicate and invalid-signature cases have been verified.
 
 ## Run it locally
 
