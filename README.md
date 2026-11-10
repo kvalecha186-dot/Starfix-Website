@@ -1,12 +1,51 @@
-# Starfix — Mentorship & Personal Growth Platform
+<div align="center">
 
-[![Production build](https://github.com/kvalecha186-dot/Starfix-Website/actions/workflows/build.yml/badge.svg)](https://github.com/kvalecha186-dot/Starfix-Website/actions/workflows/build.yml) [![Live app](https://img.shields.io/badge/Live%20app-Vercel-black?logo=vercel)](https://starfix-website.vercel.app)
+# ✨ Starfix
+### *Mentorship & Personal Growth Platform*
+
+[![Live Demo](https://img.shields.io/badge/Live_Demo-Vercel-black?style=for-the-badge&logo=vercel)](https://starfix-website.vercel.app)
+[![React](https://img.shields.io/badge/React_18-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Vite](https://img.shields.io/badge/Vite_6-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev/)
+[![TailwindCSS](https://img.shields.io/badge/Tailwind_CSS_v4-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
+[![Supabase](https://img.shields.io/badge/Supabase-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white)](https://supabase.com/)
+[![Razorpay](https://img.shields.io/badge/Razorpay-0C2451?style=for-the-badge&logo=razorpay&logoColor=white)](https://razorpay.com/)
+
+**Find the right mentor. Follow a structured growth path. Track real progress.**
+
+[Live Demo](https://starfix-website.vercel.app) · [Screenshots](#-screenshots) · [Run it locally](#run-it-locally) · [Admin Dashboard](https://github.com/kvalecha186-dot/premium-admin-dashboard)
+
+<br/>
+
+<img src="docs/screenshots/hero.webp" alt="Starfix landing page: Fix Your Star with Starfix" width="900"/>
+
+</div>
+
 
 Starfix is a platform I'm building around one simple idea: finding the right mentor should be easier, and personal growth should be something people can actually track.
 
 The platform brings learners and mentors together. Learners can explore mentors, work towards goals and follow structured growth paths. Mentors get their own space to manage their profiles and mentees, while the admin dashboard gives a broader view of what's happening across the platform.
 
 This repository contains the main Starfix web application.
+
+## 📸 Screenshots
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/star-journey.webp" alt="Your Star Journey section"/><br/><sub><b>Star Journey</b> — five milestones from Discover to Transformation</sub></td>
+    <td width="50%"><img src="docs/screenshots/how-it-works.webp" alt="How Starfix works"/><br/><sub><b>How it works</b> — path, mentor, star map, growth</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/star-map.webp" alt="A Living Star Map section"/><br/><sub><b>Star Map</b> — progress shown as a constellation of milestones</sub></td>
+    <td width="50%"><img src="docs/screenshots/daily-missions.webp" alt="Daily Missions and Achievements"/><br/><sub><b>Daily missions &amp; achievements</b> — XP, streaks and badges</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/pricing.webp" alt="Pricing plans"/><br/><sub><b>Pricing</b> — Explorer, Accelerator and Visionary plans</sub></td>
+    <td width="50%"><img src="docs/screenshots/login.webp" alt="Sign in dialog"/><br/><sub><b>Authentication</b> — email and password sign-in</sub></td>
+  </tr>
+</table>
+
+> Screenshots are captured from the running application's public pages. Learner, mentor and admin screens sit behind sign-in and are not shown here.
 
 ## What you can do with Starfix
 
@@ -82,23 +121,6 @@ Starfix Admin Dashboard
 ```
 
 Some of the main database concepts used by the application include profiles, mentors, growth paths, milestones, bookings, enrolments, user progress, XP transactions, notifications, messages and resources. The SQL files in the `supabase/` directory are the best place to review the schema and database policies.
-
-## Database setup and deployment
-
-The database is managed through versioned SQL migrations in `supabase/migrations/`. The baseline migration creates the core schema, RLS policies, auth trigger, seed catalog and the supporting progress/admin tables. Later migrations add the verified booking, availability and payment ledger, followed by message-membership hardening.
-
-For a fresh Supabase project:
-
-```bash
-supabase login
-supabase link --project-ref mndyaxvkjzzgyvfrxgvm
-supabase db push
-supabase functions deploy razorpay-payments --no-verify-jwt
-```
-
-Set these Edge Function secrets in Supabase before testing paid checkout: `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET`, and `PAYMENTS_ALLOWED_ORIGIN`. Use Razorpay test credentials first. Never put the Razorpay secret or Supabase service-role key in browser variables or GitHub.
-
-The app can build and deploy without payment secrets, but paid checkout remains unavailable until those secrets and the Razorpay webhook are configured and tested. Do not enable live payments until successful, failed, duplicate and invalid-signature cases have been verified.
 
 ## Run it locally
 
