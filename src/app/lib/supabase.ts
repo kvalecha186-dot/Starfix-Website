@@ -147,6 +147,7 @@ export async function claimOrCreateMentorProfile(
     yearsExperience?: number; category?: string; skills?: string[];
     education?: string; linkedinUrl?: string; bio?: string;
     mentoringApproach?: string; offersFreeIntro?: boolean;
+    sessionPrice?: string; sessionDuration?: string;
   }
 ): Promise<{ mentorId: string } | null> {
   const patch = {
@@ -166,6 +167,8 @@ export async function claimOrCreateMentorProfile(
     bio: fields.bio ?? null,
     mentoring_approach: fields.mentoringApproach ?? null,
     offers_free_intro: fields.offersFreeIntro ?? false,
+    price: fields.sessionPrice ? `₹${Number(fields.sessionPrice.replace(/[^0-9.]/g, '')).toLocaleString('en-IN')}/session` : 'Free intro',
+    free: !fields.sessionPrice,
     onboarding_completed: true,
   };
 
@@ -176,13 +179,46 @@ export async function claimOrCreateMentorProfile(
     .eq("email", fields.email)
     .maybeSingle();
 
+  let mentorId: string;
   if (existing?.id) {
     const { error } = await supabase.from("mentors").update(patch).eq("id", existing.id);
     if (error) { console.error("Starfix mentor claim failed:", error.message); return null; }
-    return { mentorId: existing.id };
+    mentorId = existing.id;
+  } else {
+    const { data: created, error } = await supabase.from("mentors").insert(patch).select("id").single();
+    if (error || !created) { console.error("Starfix mentor create failed:", error?.message); return null; }
+    mentorId = created.id;
   }
 
-  const { data: created, error } = await supabase.from("mentors").insert(patch).select("id").single();
-  if (error) { console.error("Starfix mentor create failed:", error.message); return null; }
-  return { mentorId: created.id };
+  // Replace placeholder/default session rows with the price and duration the mentor submitted.
+  const { error: deactivateError } = await supabase
+    .from("session_types").update({ active: false }).eq("mentor_id", mentorId);
+  if (deactivateError) { console.error("Unable to deactivate default mentor sessions:", deactivateError.message); return null; }
+
+  const duration = Math.max(15, Math.min(240, Number(fields.sessionDuration) || 45));
+  const price = Number(String(fields.sessionPrice || "").replace(/[^0-9.]/g, ""));
+  const sessions: any[] = [];
+  if (Number.isFinite(price) && price > 0) {
+    sessions.push({
+      mentor_id: mentorId, title: `${duration} min Session`,
+      description: "A focused one-to-one mentoring session.",
+      duration_minutes: duration, price, currency: "INR", active: true,
+    });
+  }
+  if (fields.offersFreeIntro) {
+    sessions.push({
+      mentor_id: mentorId, title: "30 min Free Intro",
+      description: "A short introductory conversation to confirm fit and goals.",
+      duration_minutes: 30, price: 0, currency: "INR", active: true,
+    });
+  }
+  if (sessions.length === 0) {
+    console.error("Mentor onboarding did not provide a valid paid session or free introduction.");
+    return null;
+  }
+  const { error: sessionError } = await supabase
+    .from("session_types").upsert(sessions, { onConflict: "mentor_id,title" });
+  if (sessionError) { console.error("Unable to save mentor session pricing:", sessionError.message); return null; }
+
+  return { mentorId };
 }
