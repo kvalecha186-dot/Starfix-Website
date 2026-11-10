@@ -152,11 +152,32 @@ export async function createBookingAndPersist(data: Omit<Booking, "id" | "create
   return { ...booking, id: databaseId };
 }
 
-export function cancelBooking(bookingId: string): boolean {
-  const bookings = readLocal(); const index = bookings.findIndex((b) => b.id === bookingId);
-  if (index === -1) return false;
-  bookings[index] = { ...bookings[index], status: "Cancelled" }; writeLocal(bookings);
-  void (async () => { const uid = await currentUserId(); if (!uid) return; await supabase.from("bookings").update({ status: "cancelled" }).eq("student_id", uid).or(`id.eq.${bookingId},external_id.eq.${bookingId}`); })();
+export async function cancelBooking(bookingId: string): Promise<boolean> {
+  const bookings = readLocal();
+  const booking = bookings.find((item) => item.id === bookingId);
+  if (!booking) return false;
+
+  const uid = await currentUserId();
+  if (!uid) return false;
+
+  const { data, error } = await supabase
+    .from("bookings")
+    .update({ status: "cancelled" })
+    .eq("student_id", uid)
+    .or(`id.eq.${bookingId},external_id.eq.${bookingId}`)
+    .select("id")
+    .maybeSingle();
+
+  if (error || !data?.id) {
+    console.warn("Starfix booking cancellation failed:", error?.message || "No matching booking was updated");
+    return false;
+  }
+
+  const index = bookings.findIndex((item) => item.id === bookingId);
+  if (index !== -1) {
+    bookings[index] = { ...bookings[index], status: "Cancelled" };
+    writeLocal(bookings);
+  }
   return true;
 }
 

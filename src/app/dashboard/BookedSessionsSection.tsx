@@ -75,13 +75,15 @@ export function BookingDetailsModal({
 
   const [confirmCancel, setConfirmCancel] = useState(false);
 
-  const handleCancelSession = () => {
-    const ok = cancelBooking(booking.id);
+  const handleCancelSession = async () => {
+    const ok = await cancelBooking(booking.id);
     if (ok) {
       toast.success("Session cancelled", {
         description: `Your ${booking.sessionType} with ${booking.mentorName} has been cancelled.`,
       });
       onClose();
+    } else {
+      toast.error("We couldn't cancel this session. Please refresh and try again.");
     }
   };
 

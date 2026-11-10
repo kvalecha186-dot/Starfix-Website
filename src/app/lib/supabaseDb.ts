@@ -73,13 +73,15 @@ export async function saveProfileToDb(userId: string, profile: Partial<UserProfi
     if (profile.careerGoal !== undefined) patch.career_goal = profile.careerGoal;
     if (profile.avatarDataUrl !== undefined) patch.avatar_url = profile.avatarDataUrl;
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("profiles")
       .update(patch)
-      .eq("id", userId);
+      .eq("id", userId)
+      .select("id")
+      .maybeSingle();
 
-    if (error) {
-      console.warn("Failed to update profile in Supabase:", error.message);
+    if (error || !data?.id) {
+      console.warn("Failed to update profile in Supabase:", error?.message || "No matching profile was updated");
       return false;
     }
     return true;
@@ -99,6 +101,7 @@ export interface DbMentor {
   title: string;
   company: string;
   category: string;
+  yearsExperience: number;
   rating: number;
   students: number;
   price: string;
@@ -133,7 +136,8 @@ export async function fetchMentorsFromDb(): Promise<DbMentor[] | null> {
       title: m.headline,
       company: m.company,
       category: m.category,
-      rating: Number(m.rating) || 5.0,
+      yearsExperience: Number(m.years_experience) || 0,
+      rating: Number(m.rating) || 0,
       students: m.students_count || 0,
       price: m.price || (m.free ? "Free" : "₹2,500/hr"),
       free: !!m.free,
@@ -265,14 +269,16 @@ export async function cancelBookingInDb(bookingId: string): Promise<boolean> {
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return false;
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("bookings")
       .update({ status: "cancelled" })
       .eq("id", bookingId)
-      .eq("student_id", user.id);
+      .eq("student_id", user.id)
+      .select("id")
+      .maybeSingle();
 
-    if (error) {
-      console.warn("Failed to cancel booking in Supabase:", error.message);
+    if (error || !data?.id) {
+      console.warn("Failed to cancel booking in Supabase:", error?.message || "No matching booking was updated");
       return false;
     }
     return true;

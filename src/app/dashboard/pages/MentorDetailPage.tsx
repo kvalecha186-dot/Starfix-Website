@@ -73,17 +73,20 @@ function slugify(name: string) { return name.toLowerCase().replace(/[^a-z0-9]+/g
 /* ─── Component ────────────────────────────────────── */
 
 export function MentorDetailPage({
-  mentorId, onNavigate, onSelectMentor, onMessageMentor,
+  mentorId, onNavigate, onSelectMentor, onMessageMentor, onChooseMentor,
 }: {
   mentorId: number;
   onNavigate?: (p: DashPage) => void;
   onSelectMentor?: (id: number) => void;
   onMessageMentor?: (id: number) => void;
+  onChooseMentor?: (id: number, name: string) => void;
 }) {
   const { isDesktop } = useViewport();
   const routerNavigate = useNavigate();
   const staticMentor = MENTORS.find((m) => m.id === mentorId);
   const [dbMentor, setDbMentor] = useState<any>(null);
+  const [dbReviews, setDbReviews] = useState<any[]>([]);
+  const [reviewCount, setReviewCount] = useState(0);
   const detail = dbMentor ? {
     bio: dbMentor.bio || "No biography has been provided yet.",
     about: dbMentor.bio || "Mentor profile information will appear here when provided by the verified mentor.",
@@ -97,7 +100,7 @@ export function MentorDetailPage({
     relatedPaths: dbMentor.category ? [dbMentor.category] : [],
     content: [],
     faq: [],
-    reviews: [],
+    reviews: dbReviews,
   } : {
     bio: "Illustrative profile preview only.",
     about: "This is a sample design profile, not a verified mentor account. Booking and messaging are unavailable until a mentor completes onboarding.",
@@ -134,19 +137,37 @@ export function MentorDetailPage({
       setDbSessions(sessions);
       const availability = (await supabase.from("mentor_availability").select("id,start_at,end_at,status").eq("mentor_id", mentorRow.id).gte("start_at", new Date().toISOString()).order("start_at").limit(30)).data || [];
       setDbAvailability(availability);
+
+      const reviewsResult = await supabase
+        .from("reviews")
+        .select("id,rating,review_text,created_at", { count: "exact" })
+        .eq("mentor_id", mentorRow.id)
+        .order("created_at", { ascending: false })
+        .limit(10);
+      const reviews = reviewsResult.data || [];
+      setReviewCount(reviewsResult.count || 0);
+      setDbReviews(reviews.map((review: any) => ({
+        name: "Verified learner",
+        initials: "VL",
+        color: C.gold,
+        course: "Completed session",
+        rating: Number(review.rating) || 0,
+        text: review.review_text || "",
+        date: review.created_at ? new Date(review.created_at).toLocaleDateString() : "Recent",
+      })));
     })();
   }, [mentorId]);
   const mentor = dbMentor ? {
     ...(staticMentor || {}),
     id: mentorId,
-    name: dbMentor.name || staticMentor?.name,
+    name: dbMentor.name || staticMentor?.name || "Verified mentor",
     initials: dbMentor.initials || staticMentor?.initials || "ME",
     color: dbMentor.color || staticMentor?.color || C.gold,
     title: dbMentor.headline || staticMentor?.title || "Starfix Mentor",
     company: dbMentor.company || staticMentor?.company || "",
     category: dbMentor.category || staticMentor?.category || "Coding",
-    rating: Number(dbMentor.rating) || 0,
-    students: Number(dbMentor.students_count) || 0,
+    rating: reviewCount > 0 ? (Number(dbMentor.rating) || 0) : 0,
+    students: 0,
     price: dbMentor.price || staticMentor?.price || "Free",
     free: !!dbMentor.free,
     availability: dbMentor.availability || staticMentor?.availability || "Today",
@@ -213,7 +234,7 @@ export function MentorDetailPage({
   }
 
   const config = CATEGORY_CONFIG[mentor.category] ?? CATEGORY_CONFIG["Coding"];
-  const similar = dbMentor ? MENTORS.filter((m) => m.category === mentor.category && m.id !== mentor.id).slice(0, 3) : [];
+  const similar: typeof MENTORS = []; // Never recommend unverified sample profiles as live mentors.
   const checkoutAvailability = dbAvailability.length
     ? Object.values(dbAvailability.reduce((acc: Record<string, { date: string; slots: string[] }>, slot: any) => {
         const d = new Date(slot.start_at);
@@ -279,13 +300,11 @@ export function MentorDetailPage({
               <div style={{ display: "flex", alignItems: "center", gap: 14, fontSize: "0.82rem", flexWrap: "wrap" }}>
                 <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
                   <Star size={13} color={C.gold} fill={C.gold} />
-                  <strong style={{ color: C.text }}>{mentor.rating}</strong>
-                  <span style={{ color: C.textFaint }}>({detail.reviews.length * 137} reviews)</span>
+                  <strong style={{ color: C.text }}>{reviewCount > 0 ? mentor.rating.toFixed(1) : "New"}</strong>
+                  <span style={{ color: C.textFaint }}>({reviewCount} verified reviews)</span>
                 </span>
                 <span style={{ color: C.textFaint }}>·</span>
-                <span style={{ color: C.textMuted }}>{mentor.students.toLocaleString()} students</span>
-                <span style={{ color: C.textFaint }}>·</span>
-                <span style={{ color: C.textMuted }}>{extra.results.length + 400} sessions</span>
+                <span style={{ color: C.textMuted }}>{reviewCount > 0 ? "Verified reviews" : "New mentor profile"}</span>
                 <span style={{ color: C.textFaint }}>·</span>
                 <span style={{ color: C.textMuted }}>{detail.responseTime}</span>
               </div>
@@ -494,11 +513,11 @@ export function MentorDetailPage({
 
             <div style={{ display: "flex", gap: 32, marginBottom: 24, alignItems: "center", flexWrap: "wrap" }}>
               <div style={{ textAlign: "center" }}>
-                <div style={{ fontFamily: "'Playfair Display', serif", fontSize: "2.2rem", fontWeight: 700, color: C.text, lineHeight: 1 }}>{mentor.rating}</div>
+                <div style={{ fontFamily: "'Playfair Display', serif", fontSize: "2.2rem", fontWeight: 700, color: C.text, lineHeight: 1 }}>{reviewCount > 0 ? mentor.rating.toFixed(1) : "New"}</div>
                 <div style={{ display: "flex", gap: 1, justifyContent: "center", margin: "4px 0" }}>
                   {Array.from({ length: 5 }).map((_, i) => <Star key={i} size={11} color={C.gold} fill={i < Math.round(mentor.rating) ? C.gold : "none"} />)}
                 </div>
-                <div style={{ fontSize: "0.68rem", color: C.textFaint }}>{detail.reviews.length * 137} reviews</div>
+                <div style={{ fontSize: "0.68rem", color: C.textFaint }}>{reviewCount} verified reviews</div>
               </div>
               <div style={{ flex: 1, minWidth: 180, maxWidth: 260 }}>
                 {[5, 4, 3, 2, 1].map((star, i) => (
@@ -634,7 +653,7 @@ export function MentorDetailPage({
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px 0", marginBottom: 16, paddingBottom: 16, borderBottom: `1px solid ${C.borderMuted}` }}>
-              <InfoRow icon={Star} text={`${mentor.rating} rating`} />
+              <InfoRow icon={Star} text={reviewCount > 0 ? `${mentor.rating.toFixed(1)} rating` : "No reviews yet"} />
               <InfoRow icon={TrendingUp} text={detail.experience} />
               <InfoRow icon={Globe2} text={detail.languages.join(", ")} />
               <InfoRow icon={MapPin} text={detail.location} />
@@ -689,6 +708,17 @@ export function MentorDetailPage({
             >
               <MessageCircle size={14} /> Message Mentor
             </motion.button>
+            {onChooseMentor && dbMentor && (
+              <motion.button
+                type="button"
+                onClick={() => onChooseMentor(mentor.id, mentor.name)}
+                whileHover={{ opacity: 0.92 }}
+                whileTap={{ scale: 0.98 }}
+                style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 7, background: C.gold, color: "#fff", border: "none", borderRadius: C.radius, padding: "12px 0", fontSize: "0.84rem", fontWeight: 700, cursor: "pointer", fontFamily: "'Inter', sans-serif", marginBottom: 8 }}
+              >
+                Select this mentor
+              </motion.button>
+            )}
           </div>
         </div>
       </div>

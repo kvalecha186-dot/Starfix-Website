@@ -2,7 +2,7 @@ name: Starfix production build
 
 on:
   push:
-    branches: [main]
+    branches: [main, portfolio-completion-audit]
   pull_request:
     branches: [main]
 
@@ -17,7 +17,7 @@ jobs:
       - name: Use Node.js 20
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - name: Install dependencies
