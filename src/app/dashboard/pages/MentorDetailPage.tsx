@@ -517,7 +517,7 @@ export function MentorDetailPage({
                 <div style={{ display: "flex", gap: 1, justifyContent: "center", margin: "4px 0" }}>
                   {Array.from({ length: 5 }).map((_, i) => <Star key={i} size={11} color={C.gold} fill={i < Math.round(mentor.rating) ? C.gold : "none"} />)}
                 </div>
-                <div style={{ fontSize: "0.68rem", color: C.textFaint }}>{detail.reviews.length * 137} reviews</div>
+                <div style={{ fontSize: "0.68rem", color: C.textFaint }}>{reviewCount} verified reviews</div>
               </div>
               <div style={{ flex: 1, minWidth: 180, maxWidth: 260 }}>
                 {[5, 4, 3, 2, 1].map((star, i) => (
