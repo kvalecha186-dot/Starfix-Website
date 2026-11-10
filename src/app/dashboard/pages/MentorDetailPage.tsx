@@ -234,7 +234,7 @@ export function MentorDetailPage({
   }
 
   const config = CATEGORY_CONFIG[mentor.category] ?? CATEGORY_CONFIG["Coding"];
-  const similar = dbMentor ? MENTORS.filter((m) => m.category === mentor.category && m.id !== mentor.id).slice(0, 3) : [];
+  const similar: typeof MENTORS = []; // Never recommend unverified sample profiles as live mentors.
   const checkoutAvailability = dbAvailability.length
     ? Object.values(dbAvailability.reduce((acc: Record<string, { date: string; slots: string[] }>, slot: any) => {
         const d = new Date(slot.start_at);
