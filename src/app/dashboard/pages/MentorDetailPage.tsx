@@ -84,6 +84,7 @@ export function MentorDetailPage({
   const { isDesktop } = useViewport();
   const routerNavigate = useNavigate();
   const staticMentor = MENTORS.find((m) => m.id === mentorId);
+  const [dbMentor, setDbMentor] = useState<any>(null);
   const detail = dbMentor ? (MENTOR_DETAILS[mentorId] || {
     bio: staticMentor?.title ? staticMentor.name + " is a " + staticMentor.title + " focused on practical, outcome-driven mentoring." : "Starfix mentor focused on practical, outcome-driven mentoring.",
     about: "This mentor's detailed profile is being completed. You can still view their verified Starfix profile, session types, availability, and book a session.",
@@ -112,7 +113,6 @@ export function MentorDetailPage({
     timeline: [],
     sessions: [],
   }) : { results: [], timeline: [], sessions: [] };
-  const [dbMentor, setDbMentor] = useState<any>(null);
   const [dbSessions, setDbSessions] = useState<any[]>([]);
   const [dbAvailability, setDbAvailability] = useState<any[]>([]);
   const [openFaq, setOpenFaq] = useState<number | null>(0);
