@@ -7,17 +7,21 @@ export type DbMentor = {
   students_count: number | null; location: string | null; languages: string[] | null;
 };
 
-export async function isCurrentUserAdmin() {
-  if (typeof window !== "undefined" && localStorage.getItem("starfix:userRole") === "admin") {
-    return true;
+export async function isCurrentUserAdmin(): Promise<boolean> {
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) return false;
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (profileError) {
+    console.warn("Unable to verify Starfix admin role:", profileError.message);
+    return false;
   }
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return false;
-  if ((user.email || "").toLowerCase().includes("kvalecha") || (user.email || "").toLowerCase().includes("admin")) {
-    return true;
-  }
-  const { data } = await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle();
-  return data?.role === "admin";
+  return profile?.role === "admin";
 }
 
 export async function loadAdminMentors(): Promise<DbMentor[]> {
