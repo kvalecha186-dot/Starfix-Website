@@ -300,7 +300,7 @@ export function MentorDetailPage({
               <div style={{ display: "flex", alignItems: "center", gap: 14, fontSize: "0.82rem", flexWrap: "wrap" }}>
                 <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
                   <Star size={13} color={C.gold} fill={C.gold} />
-                  <strong style={{ color: C.text }}>{mentor.rating}</strong>
+                  <strong style={{ color: C.text }}>{reviewCount > 0 ? mentor.rating.toFixed(1) : "New"}</strong>
                   <span style={{ color: C.textFaint }}>({reviewCount} verified reviews)</span>
                 </span>
                 <span style={{ color: C.textFaint }}>·</span>
@@ -513,7 +513,7 @@ export function MentorDetailPage({
 
             <div style={{ display: "flex", gap: 32, marginBottom: 24, alignItems: "center", flexWrap: "wrap" }}>
               <div style={{ textAlign: "center" }}>
-                <div style={{ fontFamily: "'Playfair Display', serif", fontSize: "2.2rem", fontWeight: 700, color: C.text, lineHeight: 1 }}>{mentor.rating}</div>
+                <div style={{ fontFamily: "'Playfair Display', serif", fontSize: "2.2rem", fontWeight: 700, color: C.text, lineHeight: 1 }}>{reviewCount > 0 ? mentor.rating.toFixed(1) : "New"}</div>
                 <div style={{ display: "flex", gap: 1, justifyContent: "center", margin: "4px 0" }}>
                   {Array.from({ length: 5 }).map((_, i) => <Star key={i} size={11} color={C.gold} fill={i < Math.round(mentor.rating) ? C.gold : "none"} />)}
                 </div>
@@ -653,7 +653,7 @@ export function MentorDetailPage({
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px 0", marginBottom: 16, paddingBottom: 16, borderBottom: `1px solid ${C.borderMuted}` }}>
-              <InfoRow icon={Star} text={`${mentor.rating} rating`} />
+              <InfoRow icon={Star} text={reviewCount > 0 ? `${mentor.rating.toFixed(1)} rating` : "No reviews yet"} />
               <InfoRow icon={TrendingUp} text={detail.experience} />
               <InfoRow icon={Globe2} text={detail.languages.join(", ")} />
               <InfoRow icon={MapPin} text={detail.location} />
