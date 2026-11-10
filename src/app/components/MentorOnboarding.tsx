@@ -76,7 +76,8 @@ export function MentorOnboarding({ open, onClose, onComplete }: { open: boolean;
       if (!form.category) return "Please select a professional category.";
     }
     if (step === 4) {
-      if (!form.sessionPrice.trim() && !form.offersFreeIntro) return "Set a session price, or mark your intro session as free.";
+      if (!form.sessionPrice.trim() && !form.offersFreeIntro) return "Set a session price, or offer a free intro session.";
+      if (form.sessionPrice.trim() && (!Number.isFinite(Number(form.sessionPrice.replace(/[^0-9.]/g, ""))) || Number(form.sessionPrice.replace(/[^0-9.]/g, "")) <= 0)) return "Enter a session price greater than zero.";
     }
     return null;
   }
@@ -167,6 +168,8 @@ export function MentorOnboarding({ open, onClose, onComplete }: { open: boolean;
         bio: form.bio.trim() || undefined,
         mentoringApproach: form.mentoringApproach.trim() || undefined,
         offersFreeIntro: form.offersFreeIntro,
+        sessionPrice: form.sessionPrice,
+        sessionDuration: form.sessionDuration,
       });
       if (!mentorProfile?.mentorId) {
         throw new Error("Your account was created, but the mentor profile could not be saved. Please contact support before retrying.");
